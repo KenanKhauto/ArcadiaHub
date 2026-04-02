@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}بوابة الألعاب{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- Navbar -->
+<header class="navbar">
+    <div class="nav-container">
+
+        <!-- Logo -->
+        <div class="logo" onclick="goHome()">
+            🎮 بوابة الألعاب
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="nav-links">
+            <a href="/" class="nav-link">الرئيسية</a>
+            <a href="/" class="nav-link">الألعاب</a>
+            <a href="/about" class="nav-link">حول</a>
+            <a href="/profile" class="nav-link">حساب</a>
+        </nav>
+
+        <!-- Mobile Menu Button -->
+        <div class="menu-toggle" onclick="toggleMenu()">
+            ☰
+        </div>
+
+    </div>
+
+    <!-- Mobile Dropdown -->
+    <div id="mobileMenu" class="mobile-menu hidden">
+        <a href="/">الرئيسية</a>
+        <a href="/games">الألعاب</a>
+        <a href="/about">حول</a>
+        <a href="/profile">الملف</a>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="main-content">
+    {% block content %}{% endblock %}
+</main>
+
+<script>
+function toggleMenu() {
+    document.getElementById("mobileMenu").classList.toggle("hidden");
+}
+
+function goHome() {
+    window.location.href = "/";
+}
+</script>
+
+</body>
+</html>

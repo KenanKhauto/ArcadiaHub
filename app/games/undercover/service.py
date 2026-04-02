@@ -1,0 +1,375 @@
+"""Business logic for the Undercover game."""
+
+from __future__ import annotations
+
+import random
+import uuid
+from typing import Dict, List, Optional
+
+from app.core.exceptions import InvalidVoteError, PlayerNotFoundError, RoomNotFoundError
+from app.core.utils import choose_random_players, generate_room_code
+from app.games.undercover.constants import CATEGORIES
+from app.games.undercover.domain import Player, UndercoverRoom
+from app.repositories.memory_store import memory_store
+
+
+class UndercoverGameService:
+    """
+    Service layer for managing Undercover game rooms and actions.
+    """
+
+    def create_room(
+        self,
+        host_name: str,
+        player_count: int,
+        undercover_count: int,
+        category: str,
+    ) -> UndercoverRoom:
+        """
+        Create a new room and add the host as the first player.
+        """
+        if category not in CATEGORIES:
+            raise ValueError("Invalid category.")
+
+        room_code = generate_room_code()
+        host_id = str(uuid.uuid4())
+
+        room = UndercoverRoom(
+            room_code=room_code,
+            host_id=host_id,
+            category=category,
+            player_count=player_count,
+            undercover_count=undercover_count,
+        )
+        room.players[host_id] = Player(id=host_id, name=host_name)
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def join_room(self, room_code: str, player_name: str) -> UndercoverRoom:
+        """
+        Join an existing room.
+        """
+        room = self._get_room(room_code)
+
+        if room.started:
+            raise ValueError("Game already started.")
+
+        if len(room.players) >= room.player_count:
+            raise ValueError("Room is full.")
+
+        player_id = str(uuid.uuid4())
+        room.players[player_id] = Player(id=player_id, name=player_name)
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def leave_room(self, room_code: str, player_id: str) -> Optional[UndercoverRoom]:
+        """
+        Allow a non-host player to leave a room before the game starts.
+
+        Returns:
+            The updated room if it still exists, otherwise None.
+        """
+        room = self._get_room(room_code)
+
+        if player_id not in room.players:
+            raise PlayerNotFoundError("Player not found.")
+
+        if player_id == room.host_id:
+            raise ValueError("Host cannot leave the room. Host must delete the room.")
+
+        if room.started:
+            raise ValueError("Players cannot leave after the game has started.")
+
+        del room.players[player_id]
+
+        if not room.players:
+            memory_store.delete_room(room_code)
+            return None
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def delete_room(self, room_code: str, player_id: str) -> None:
+        """
+        Allow the host to delete the room completely.
+        """
+        room = self._get_room(room_code)
+
+        if player_id != room.host_id:
+            raise ValueError("Only the host can delete the room.")
+
+        memory_store.delete_room(room_code)
+
+    def start_game(self, room_code: str) -> UndercoverRoom:
+        """
+        Start the game by assigning words and undercover players.
+        """
+        room = self._get_room(room_code)
+
+        if len(room.players) != room.player_count:
+            raise ValueError("Room is not full yet.")
+
+        words = CATEGORIES[room.category]
+        chosen_word = random.choice(words)
+        player_ids = list(room.players.keys())
+        undercover_ids = choose_random_players(player_ids, room.undercover_count)
+
+        for player in room.players.values():
+            player.secret_word = chosen_word
+            player.is_undercover = False
+            player.is_eliminated = False
+
+        for player_id in undercover_ids:
+            room.players[player_id].secret_word = "أنت المندس"
+            room.players[player_id].is_undercover = True
+
+        room.started = True
+        room.votes = {player_id: [] for player_id in room.players.keys()}
+        room.ended = False
+        room.winner = None
+        room.eliminated_player_id = None
+        room.eliminated_player_is_undercover = None
+        room.round_number = 1
+        self._assign_round_pair(room)
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def get_room_state(self, room_code: str) -> UndercoverRoom:
+        """
+        Retrieve current room state.
+        """
+        return self._get_room(room_code)
+
+    def get_player_secret(self, room_code: str, player_id: str) -> Dict[str, str]:
+        """
+        Get the secret word or undercover label for a player.
+        """
+        room = self._get_room(room_code)
+        player = room.players.get(player_id)
+
+        if not player:
+            raise PlayerNotFoundError("Player not found.")
+
+        return {
+            "player_id": player.id,
+            "player_name": player.name,
+            "secret_word": player.secret_word,
+        }
+
+    def submit_vote(self, room_code: str, voter_id: str, voted_player_ids: List[str]) -> UndercoverRoom:
+        """
+        Submit or replace a player's votes.
+
+        A player can vote for up to `undercover_count` targets.
+        """
+        room = self._get_room(room_code)
+
+        if room.ended:
+            raise InvalidVoteError("Game has already ended.")
+
+        if voter_id not in room.players:
+            raise PlayerNotFoundError("Voter not found.")
+
+        if room.players[voter_id].is_eliminated:
+            raise InvalidVoteError("Eliminated players cannot vote.")
+
+        if len(voted_player_ids) > room.undercover_count:
+            raise InvalidVoteError("Too many votes selected.")
+
+        if len(voted_player_ids) != len(set(voted_player_ids)):
+            raise InvalidVoteError("Duplicate votes are not allowed.")
+
+        for target_id in voted_player_ids:
+            if target_id not in room.players:
+                raise PlayerNotFoundError("A selected player does not exist.")
+            if target_id == voter_id:
+                raise InvalidVoteError("A player cannot vote for themselves.")
+            if room.players[target_id].is_eliminated:
+                raise InvalidVoteError("You cannot vote for an eliminated player.")
+
+        room.votes[voter_id] = voted_player_ids
+        self._resolve_votes(room)
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def restart_game(self, room_code: str, category: str, undercover_count: int) -> UndercoverRoom:
+        """
+        Restart the current room while keeping the same players.
+
+        Undercover assignments are randomized again.
+        """
+        room = self._get_room(room_code)
+
+        if category not in CATEGORIES:
+            raise ValueError("Invalid category.")
+
+        room.category = category
+        room.undercover_count = undercover_count
+
+        for player in room.players.values():
+            player.secret_word = ""
+            player.is_undercover = False
+            player.is_eliminated = False
+
+        room.started = False
+        room.ended = False
+        room.winner = None
+        room.votes = {}
+        room.eliminated_player_id = None
+        room.eliminated_player_is_undercover = None
+        room.current_asker_id = None
+        room.current_target_id = None
+        room.round_number = 1
+
+        memory_store.save_room(room_code, self._serialize_room(room))
+        return room
+
+    def _assign_round_pair(self, room: UndercoverRoom) -> None:
+        """
+        Assign a random asker and a different random target
+        from active (non-eliminated) players.
+        """
+        active_players = [player for player in room.players.values() if not player.is_eliminated]
+
+        if len(active_players) < 2:
+            room.current_asker_id = None
+            room.current_target_id = None
+            return
+
+        asker = random.choice(active_players)
+        possible_targets = [player for player in active_players if player.id != asker.id]
+        target = random.choice(possible_targets)
+
+        room.current_asker_id = asker.id
+        room.current_target_id = target.id
+
+    def _resolve_votes(self, room: UndercoverRoom) -> None:
+        """
+        Resolve vote results.
+
+        Rule implemented from your description:
+        - If enough players vote for one target, that target is immediately revealed.
+        - If revealed player is not undercover, the round ends and undercovers win.
+        - If all undercovers are caught, normal players win.
+        """
+        active_players = [p for p in room.players.values() if not p.is_eliminated]
+        total_active = len(active_players)
+
+        target_counts: Dict[str, int] = {player.id: 0 for player in active_players}
+
+        for voter_id, voted_targets in room.votes.items():
+            if voter_id not in room.players or room.players[voter_id].is_eliminated:
+                continue
+
+            for target_id in voted_targets:
+                if target_id in target_counts:
+                    target_counts[target_id] += 1
+
+        threshold = total_active - room.undercover_count
+
+        for target_id, count in target_counts.items():
+            if count >= threshold:
+                target_player = room.players[target_id]
+                target_player.is_eliminated = True
+                room.eliminated_player_id = target_id
+                room.eliminated_player_is_undercover = target_player.is_undercover
+
+                if not target_player.is_undercover:
+                    room.ended = True
+                    room.winner = "undercover"
+                    room.current_asker_id = None
+                    room.current_target_id = None
+                    return
+
+                remaining_undercovers = [
+                    p for p in room.players.values()
+                    if p.is_undercover and not p.is_eliminated
+                ]
+
+                if not remaining_undercovers:
+                    room.ended = True
+                    room.winner = "players"
+                    room.current_asker_id = None
+                    room.current_target_id = None
+                    return
+
+                room.votes = {
+                    player.id: []
+                    for player in room.players.values()
+                    if not player.is_eliminated
+                }
+                room.round_number += 1
+                self._assign_round_pair(room)
+                return
+
+    def _get_room(self, room_code: str) -> UndercoverRoom:
+        """
+        Get and deserialize a room from storage.
+        """
+        raw_room = memory_store.get_room(room_code)
+        if not raw_room:
+            raise RoomNotFoundError("Room not found.")
+        return self._deserialize_room(raw_room)
+
+    def _serialize_room(self, room: UndercoverRoom) -> dict:
+        """Convert room object into serializable dictionary."""
+        return {
+            "room_code": room.room_code,
+            "host_id": room.host_id,
+            "category": room.category,
+            "player_count": room.player_count,
+            "undercover_count": room.undercover_count,
+            "started": room.started,
+            "ended": room.ended,
+            "winner": room.winner,
+            "votes": room.votes,
+            "eliminated_player_id": room.eliminated_player_id,
+            "eliminated_player_is_undercover": room.eliminated_player_is_undercover,
+            "current_asker_id": room.current_asker_id,
+            "current_target_id": room.current_target_id,
+            "round_number": room.round_number,
+            "players": {
+                player_id: {
+                    "id": player.id,
+                    "name": player.name,
+                    "secret_word": player.secret_word,
+                    "is_undercover": player.is_undercover,
+                    "is_eliminated": player.is_eliminated,
+                }
+                for player_id, player in room.players.items()
+            },
+        }
+
+    def _deserialize_room(self, data: dict) -> UndercoverRoom:
+        """Convert serialized data back to UndercoverRoom."""
+        room = UndercoverRoom(
+            room_code=data["room_code"],
+            host_id=data["host_id"],
+            category=data["category"],
+            player_count=data["player_count"],
+            undercover_count=data["undercover_count"],
+            started=data["started"],
+            ended=data["ended"],
+            winner=data["winner"],
+            votes=data["votes"],
+            eliminated_player_id=data.get("eliminated_player_id"),
+            eliminated_player_is_undercover=data.get("eliminated_player_is_undercover"),
+            current_asker_id=data.get("current_asker_id"),
+            current_target_id=data.get("current_target_id"),
+            round_number=data.get("round_number", 1),
+        )
+
+        for player_id, player_data in data["players"].items():
+            room.players[player_id] = Player(
+                id=player_data["id"],
+                name=player_data["name"],
+                secret_word=player_data["secret_word"],
+                is_undercover=player_data["is_undercover"],
+                is_eliminated=player_data["is_eliminated"],
+            )
+
+        return room
