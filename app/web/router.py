@@ -13,6 +13,7 @@ templates = Jinja2Templates(directory="app/web/templates")
 def home(request: Request):
     """Render the home page."""
     return templates.TemplateResponse(
+        request,
         "home.html",
         {"request": request, "games": GAMES},
     )
@@ -22,6 +23,7 @@ def home(request: Request):
 def games_page(request: Request):
     """Render the games page."""
     return templates.TemplateResponse(
+        request,
         "home.html",
         {"request": request, "games": GAMES},
     )
@@ -31,6 +33,7 @@ def games_page(request: Request):
 def undercover_page(request: Request):
     """Render the Undercover game page."""
     return templates.TemplateResponse(
+        request,
         "undercover.html",
         {"request": request},
     )
@@ -40,6 +43,7 @@ def undercover_page(request: Request):
 def about_page(request: Request):
     """Render the about page."""
     return templates.TemplateResponse(
+        request,
         "about.html",
         {"request": request},
     )
@@ -49,6 +53,7 @@ def about_page(request: Request):
 def profile_page(request: Request):
     """Render the profile page."""
     return templates.TemplateResponse(
+        request,
         "profile.html",
         {"request": request},
     )
