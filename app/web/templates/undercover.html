@@ -6,27 +6,10 @@
 <div id="screen-lobby" class="card glow-border">
     <h1 style="color:var(--primary); text-shadow: var(--glow);">بوابة الزبداني</h1>
     <input type="text" id="pName" placeholder="اسمك المستعار....">
-    <button class="btn btn-primary" onclick="showSelection()">إنشاء غرفة جديدة +</button>
+    <button class="btn btn-primary" onclick="createRoom()">إنشاء غرفة جديدة +</button>
     <div style="margin:10px; color:#666">— أو —</div>
     <input type="text" id="roomInput" placeholder="كود الغرفة">
     <button class="btn" onclick="joinRoom()">انضمام للغرفة</button>
-</div>
-
-<div id="screen-select" class="card hidden">
-    <h2 style="color:var(--primary)">اختر نوع اللعبة 🕹️</h2>
-
-    <div class="game-option disabled-opt">
-        <div class="cs-tag">Coming Soon</div>
-        <h3 style="margin:0; color: #777;">لعبتنا 🪐</h3>
-        <p style="color:#555; font-size:12px;">لعبة الأسئلة والخداع الكبرى</p>
-    </div>
-
-    <div class="game-option" onclick="showMondasSetup()" style="border-color: var(--primary); box-shadow: var(--glow);">
-        <h3 style="margin:0">مندس الحارة 🕵️‍♂️</h3>
-        <p style="color:#888; font-size:12px;">اكتشف المندس المختبئ بينكم</p>
-    </div>
-
-    <button class="btn" onclick="goBackToLobby()">رجوع</button>
 </div>
 
 <div id="screen-mondas-setup" class="card hidden">
