@@ -41,9 +41,13 @@
 
         {% if request.session.get("user_id") %}
 
-            <div href="/profile" class="mobile-user">
+            
+            <a href="/profile">
+            <span class="nav-user">
                 أهلاً، {{ current_user.display_name or current_user.username }}
-            </div>
+            </span>
+            </a>
+           
         {% else %}
             <a href="/login">تسجيل الدخول</a>
             

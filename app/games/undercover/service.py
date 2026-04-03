@@ -10,13 +10,23 @@ from app.core.exceptions import InvalidVoteError, PlayerNotFoundError, RoomNotFo
 from app.core.utils import choose_random_players, generate_room_code
 from app.games.undercover.constants import CATEGORIES
 from app.games.undercover.domain import Player, UndercoverRoom
-from app.repositories.memory_store import memory_store
+from app.repositories.room_repository import RoomRepository
+from app.services.room_storage import get_room_repository
 
 
 class UndercoverGameService:
     """
     Service layer for managing Undercover game rooms and actions.
     """
+    def __init__(self, room_repository: RoomRepository | None = None) -> None:
+        """
+        Initialize the service with a room repository.
+
+        Args:
+            room_repository: Repository implementation for room storage.
+                If not provided, the configured default repository is used.
+        """
+        self.room_repository = room_repository or get_room_repository()
 
     def create_room(
         self,
@@ -43,7 +53,7 @@ class UndercoverGameService:
         )
         room.players[host_id] = Player(id=host_id, name=host_name)
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def join_room(self, room_code: str, player_name: str) -> UndercoverRoom:
@@ -61,7 +71,7 @@ class UndercoverGameService:
         player_id = str(uuid.uuid4())
         room.players[player_id] = Player(id=player_id, name=player_name)
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def leave_room(self, room_code: str, player_id: str) -> Optional[UndercoverRoom]:
@@ -85,10 +95,10 @@ class UndercoverGameService:
         del room.players[player_id]
 
         if not room.players:
-            memory_store.delete_room(room_code)
+            self.room_repository.delete_room(room_code)
             return None
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def delete_room(self, room_code: str, player_id: str) -> None:
@@ -100,7 +110,7 @@ class UndercoverGameService:
         if player_id != room.host_id:
             raise ValueError("Only the host can delete the room.")
 
-        memory_store.delete_room(room_code)
+        self.room_repository.delete_room(room_code)
 
     def start_game(self, room_code: str) -> UndercoverRoom:
         """
@@ -134,7 +144,7 @@ class UndercoverGameService:
         room.round_number = 1
         self._assign_round_pair(room)
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def get_room_state(self, room_code: str) -> UndercoverRoom:
@@ -193,7 +203,7 @@ class UndercoverGameService:
         room.votes[voter_id] = voted_player_ids
         self._resolve_votes(room)
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def restart_game(self, room_code: str, category: str, undercover_count: int) -> UndercoverRoom:
@@ -225,7 +235,7 @@ class UndercoverGameService:
         room.current_target_id = None
         room.round_number = 1
 
-        memory_store.save_room(room_code, self._serialize_room(room))
+        self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
     def _assign_round_pair(self, room: UndercoverRoom) -> None:
@@ -310,7 +320,7 @@ class UndercoverGameService:
         """
         Get and deserialize a room from storage.
         """
-        raw_room = memory_store.get_room(room_code)
+        raw_room = self.room_repository.get_room(room_code)
         if not raw_room:
             raise RoomNotFoundError("Room not found.")
         return self._deserialize_room(raw_room)
