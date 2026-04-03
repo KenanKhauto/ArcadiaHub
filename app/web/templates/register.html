@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}إنشاء حساب{% endblock %}
+
+{% block content %}
+<div class="card glow-border">
+    <h1 style="color:var(--primary); text-shadow: var(--glow);">إنشاء حساب</h1>
+    <p style="color:#aaa;">أنشئ حسابك للبدء في استخدام ArcadiaHub.</p>
+
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/register">
+        <input type="text" name="username" placeholder="اسم المستخدم" required />
+        <input type="text" name="display_name" placeholder="الاسم الظاهر (اختياري)" />
+        <input type="email" name="email" placeholder="البريد الإلكتروني (اختياري)" />
+        <input type="password" name="password" placeholder="كلمة المرور" required />
+        <button class="btn btn-primary" type="submit">إنشاء الحساب</button>
+    </form>
+
+    <p style="color:#aaa; margin-top: 15px;">
+        لديك حساب بالفعل؟
+        <a href="/login" class="inline-link">سجل الدخول</a>
+    </p>
+</div>
+{% endblock %}

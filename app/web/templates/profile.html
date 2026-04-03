@@ -5,50 +5,34 @@
 {% block content %}
 <div class="card glow-border">
     <h1 style="color:var(--primary); text-shadow: var(--glow);">الملف الشخصي</h1>
-    <p style="color:#aaa;">احفظ اسمك ليظهر تلقائياً عند الدخول إلى الألعاب.</p>
+    <p style="color:#aaa;">أنت الآن مسجل الدخول إلى ArcadiaHub.</p>
 
-    <input type="text" id="savedNameInput" placeholder="اكتب اسمك هنا..." />
-    <button class="btn btn-primary" onclick="saveProfileName()">حفظ الاسم</button>
-    <button class="btn" onclick="clearProfileName()">حذف الاسم المحفوظ</button>
+    <div class="profile-box">
+        <div class="profile-row">
+            <span class="profile-label">اسم المستخدم:</span>
+            <span class="profile-value">{{ current_user.username }}</span>
+        </div>
 
-    <div id="profileMessage" style="margin-top:15px; color:#aaa;"></div>
+        <div class="profile-row">
+            <span class="profile-label">الاسم الظاهر:</span>
+            <span class="profile-value">{{ current_user.display_name or "-" }}</span>
+        </div>
+
+        <div class="profile-row">
+            <span class="profile-label">البريد الإلكتروني:</span>
+            <span class="profile-value">{{ current_user.email or "-" }}</span>
+        </div>
+
+        <div class="profile-row">
+            <span class="profile-label">رقم المستخدم:</span>
+            <span class="profile-value">{{ current_user.id }}</span>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <form method="post" action="/logout">
+            <button class="btn btn-primary" type="submit">تسجيل الخروج</button>
+        </form>
+    </div>
 </div>
-
-<script>
-function loadProfileName() {
-    const savedName = localStorage.getItem("undercover_player_name") || "";
-    const input = document.getElementById("savedNameInput");
-    const message = document.getElementById("profileMessage");
-
-    input.value = savedName;
-
-    if (savedName) {
-        message.textContent = `الاسم المحفوظ حالياً: ${savedName}`;
-    } else {
-        message.textContent = "لا يوجد اسم محفوظ حالياً.";
-    }
-}
-
-function saveProfileName() {
-    const input = document.getElementById("savedNameInput");
-    const message = document.getElementById("profileMessage");
-    const name = input.value.trim();
-
-    if (!name) {
-        message.textContent = "الرجاء إدخال اسم صالح.";
-        return;
-    }
-
-    localStorage.setItem("undercover_player_name", name);
-    message.textContent = `تم حفظ الاسم: ${name}`;
-}
-
-function clearProfileName() {
-    localStorage.removeItem("undercover_player_name");
-    document.getElementById("savedNameInput").value = "";
-    document.getElementById("profileMessage").textContent = "تم حذف الاسم المحفوظ.";
-}
-
-document.addEventListener("DOMContentLoaded", loadProfileName);
-</script>
 {% endblock %}

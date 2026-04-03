@@ -8,40 +8,49 @@
 </head>
 <body>
 
-<!-- Navbar -->
 <header class="navbar">
     <div class="nav-container">
-
-        <!-- Logo -->
         <div class="logo" onclick="goHome()">
-            🎮 بوابة الألعاب
+            🎮 ArcadiaHub
         </div>
 
-        <!-- Navigation Links -->
         <nav class="nav-links">
             <a href="/" class="nav-link">الرئيسية</a>
-            <a href="/" class="nav-link">الألعاب</a>
+            <a href="/games" class="nav-link">الألعاب</a>
             <a href="/about" class="nav-link">حول</a>
-            <a href="/profile" class="nav-link">حساب</a>
+
+            {% if request.session.get("user_id") %}
+                <a href="/profile" class="nav-link">
+                <span class="nav-user">
+                    أهلاً، {{ current_user.display_name or current_user.username }}
+                </span>
+                </a>
+            {% else %}
+                <a href="/login" class="nav-link">تسجيل الدخول</a>
+                
+            {% endif %}
         </nav>
 
-        <!-- Mobile Menu Button -->
-        <div class="menu-toggle" onclick="toggleMenu()">
-            ☰
-        </div>
-
+        <div class="menu-toggle" onclick="toggleMenu()">☰</div>
     </div>
 
-    <!-- Mobile Dropdown -->
     <div id="mobileMenu" class="mobile-menu hidden">
         <a href="/">الرئيسية</a>
         <a href="/games">الألعاب</a>
         <a href="/about">حول</a>
-        <a href="/profile">الملف</a>
+
+        {% if request.session.get("user_id") %}
+
+            <div href="/profile" class="mobile-user">
+                أهلاً، {{ current_user.display_name or current_user.username }}
+            </div>
+        {% else %}
+            <a href="/login">تسجيل الدخول</a>
+            
+        {% endif %}
     </div>
 </header>
 
-<!-- Main Content -->
 <main class="main-content">
     {% block content %}{% endblock %}
 </main>

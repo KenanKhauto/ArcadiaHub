@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}تسجيل الدخول{% endblock %}
+
+{% block content %}
+<div class="card glow-border">
+    <h1 style="color:var(--primary); text-shadow: var(--glow);">تسجيل الدخول</h1>
+    <p style="color:#aaa;">ادخل إلى حسابك للمتابعة.</p>
+
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login">
+        <input type="text" name="username" placeholder="اسم المستخدم" required />
+        <input type="password" name="password" placeholder="كلمة المرور" required />
+        <button class="btn btn-primary" type="submit">دخول</button>
+    </form>
+
+    <p style="color:#aaa; margin-top: 15px;">
+        ليس لديك حساب؟
+        <a href="/register" class="inline-link">أنشئ حساباً</a>
+    </p>
+</div>
+{% endblock %}
