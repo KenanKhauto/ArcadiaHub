@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import re
-from functools import lru_cache
+# from functools import lru_cache
 from typing import Iterable
 
 from rapidfuzz import fuzz
-from sentence_transformers import SentenceTransformer, util
+# from sentence_transformers import SentenceTransformer, util
 
 
 def normalize_arabic_text(text: str) -> str:
@@ -51,24 +51,24 @@ def normalize_arabic_text(text: str) -> str:
     return text
 
 
-@lru_cache(maxsize=1)
-def get_embedding_model() -> SentenceTransformer:
-    """
-    Load and cache the multilingual sentence embedding model.
+# @lru_cache(maxsize=1)
+# def get_embedding_model() -> SentenceTransformer:
+#     """
+#     Load and cache the multilingual sentence embedding model.
 
-    Returns:
-        Loaded SentenceTransformer model.
-    """
-    return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+#     Returns:
+#         Loaded SentenceTransformer model.
+#     """
+#     return SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
-def preload_embedding_model() -> None:
-    """
-    Force-load the embedding model at startup.
+# def preload_embedding_model() -> None:
+#     """
+#     Force-load the embedding model at startup.
 
-    This avoids the first-request delay when the matcher is used
-    for the first time.
-    """
-    get_embedding_model()
+#     This avoids the first-request delay when the matcher is used
+#     for the first time.
+#     """
+#     get_embedding_model()
 
 def _best_fuzzy_score(guess: str, candidates: Iterable[str]) -> int:
     """
@@ -89,32 +89,32 @@ def _best_fuzzy_score(guess: str, candidates: Iterable[str]) -> int:
     return best_score
 
 
-def _best_embedding_similarity(guess: str, candidates: list[str]) -> float:
-    """
-    Compute the highest cosine similarity between the guess and candidate strings.
+# def _best_embedding_similarity(guess: str, candidates: list[str]) -> float:
+#     """
+#     Compute the highest cosine similarity between the guess and candidate strings.
 
-    Args:
-        guess: Normalized guess string.
-        candidates: Candidate strings.
+#     Args:
+#         guess: Normalized guess string.
+#         candidates: Candidate strings.
 
-    Returns:
-        Best cosine similarity score.
-    """
-    model = get_embedding_model()
+#     Returns:
+#         Best cosine similarity score.
+#     """
+#     model = get_embedding_model()
 
-    guess_embedding = model.encode(guess, convert_to_tensor=True)
-    candidate_embeddings = model.encode(candidates, convert_to_tensor=True)
+#     guess_embedding = model.encode(guess, convert_to_tensor=True)
+#     candidate_embeddings = model.encode(candidates, convert_to_tensor=True)
 
-    similarities = util.cos_sim(guess_embedding, candidate_embeddings)[0]
-    return float(similarities.max().item())
+#     similarities = util.cos_sim(guess_embedding, candidate_embeddings)[0]
+#     return float(similarities.max().item())
 
 
 def is_correct_guess(
     guess: str,
     target_label: str,
     aliases: list[str] | None = None,
-    fuzzy_threshold: int = 88,
-    embedding_threshold: float = 0.82,
+    fuzzy_threshold: int = 85,
+    # embedding_threshold: float = 0.82,
 ) -> bool:
     """
     Decide whether a player's guess should count as correct.
@@ -141,6 +141,9 @@ def is_correct_guess(
     normalized_label = normalize_arabic_text(target_label)
     normalized_aliases = [normalize_arabic_text(alias) for alias in aliases]
 
+    print(normalized_guess)
+    print(normalized_label)
+    print(*normalized_aliases)
     candidates = [normalized_label, *normalized_aliases]
 
     # Exact normalized match
@@ -152,7 +155,31 @@ def is_correct_guess(
         return True
 
     # Embedding similarity fallback
-    if _best_embedding_similarity(normalized_guess, candidates) >= embedding_threshold:
-        return True
+    # if _best_embedding_similarity(normalized_guess, candidates) >= embedding_threshold:
+    #     return True
 
     return False
+
+
+if __name__ == "__main__":
+    CATEGORIES = {
+        "football_players": [
+            {"label": "ليونيل ميسي", "aliases": ["ميسي", "ليونيل", "ليو ميسي", "messi", "lionel messi"]},
+            {"label": "كريستيانو رونالدو", "aliases": ["رونالدو", "كريستيانو", "cristiano", "ronaldo", "cristiano ronaldo"]},
+            {"label": "محمد صلاح", "aliases": ["صلاح", "محمد صلاح", "mohamed salah", "salah"]},
+            {"label": "كيليان مبابي", "aliases": ["مبابي", "كيليان", "mbappe", "kylian mbappe"]},
+            {"label": "نيمار", "aliases": ["نيمار", "neymar"]},
+            {"label": "لوكا مودريتش", "aliases": ["مودريتش", "لوكا", "modric", "luka modric"]},
+            {"label": "روبرت ليفاندوفسكي", "aliases": ["ليفاندوفسكي", "روبرت", "lewandowski", "robert lewandowski"]},
+            {"label": "إيرلينغ هالاند", "aliases": ["هالاند", "إيرلينغ", "haaland", "erling haaland"]},
+        ],
+    }
+
+    target_entry = next(
+            (entry for entry in CATEGORIES["football_players"] if entry["label"] =="كريستيانو رونالدو"),
+            None,
+        )
+    guess_text = "رونادو"
+    # print(target_entry)
+
+    print(is_correct_guess(guess=guess_text, target_label=target_entry["label"], aliases=target_entry.get("aliases", [])))
