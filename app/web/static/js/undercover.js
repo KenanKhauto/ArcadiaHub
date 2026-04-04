@@ -505,8 +505,26 @@ function renderVoters(data) {
 
     const submitButton = document.createElement("button");
     submitButton.className = "btn btn-primary";
-    submitButton.textContent = "تأكيد التصويت";
-    submitButton.onclick = submitVotes;
+
+    const hasVoted = backendVotes.length > 0;
+
+    // change text
+    submitButton.textContent = hasVoted ? "تم التصويت" : "تأكيد التصويت";
+
+    // disable if already voted
+    submitButton.disabled = hasVoted;
+
+    // apply style if already voted
+    if (hasVoted) {
+        submitButton.style.background = "#777";
+        submitButton.style.cursor = "not-allowed";
+        submitButton.style.opacity = "0.6";
+    } else {
+        submitButton.onclick = function () {
+            submitVotes();
+        };
+    }
+
     container.appendChild(submitButton);
 }
 
