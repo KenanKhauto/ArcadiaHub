@@ -40,3 +40,4 @@ class UndercoverRoom:
     current_asker_id: Optional[str] = None
     current_target_id: Optional[str] = None
     round_number: int = 1
+    last_vote_result: str | None = None

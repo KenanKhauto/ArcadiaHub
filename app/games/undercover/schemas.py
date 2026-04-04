@@ -66,6 +66,7 @@ class RoomStateResponse(BaseModel):
     current_asker_id: Optional[str] = None
     current_target_id: Optional[str] = None
     round_number: int
+    last_vote_result: str | None = None
 
 class LeaveRoomRequest(BaseModel):
     """Request body for leaving a room."""

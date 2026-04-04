@@ -18,6 +18,7 @@ class UndercoverGameService:
     """
     Service layer for managing Undercover game rooms and actions.
     """
+
     def __init__(self, room_repository: RoomRepository | None = None) -> None:
         """
         Initialize the service with a room repository.
@@ -141,6 +142,7 @@ class UndercoverGameService:
         room.winner = None
         room.eliminated_player_id = None
         room.eliminated_player_is_undercover = None
+        room.last_vote_result = None
         room.round_number = 1
         self._assign_round_pair(room)
 
@@ -174,6 +176,7 @@ class UndercoverGameService:
         Submit or replace a player's votes.
 
         A player can vote for up to `undercover_count` targets.
+        Votes are only resolved once all active players have submitted.
         """
         room = self._get_room(room_code)
 
@@ -185,6 +188,9 @@ class UndercoverGameService:
 
         if room.players[voter_id].is_eliminated:
             raise InvalidVoteError("Eliminated players cannot vote.")
+
+        if len(voted_player_ids) == 0:
+            raise InvalidVoteError("You must vote for at least one player.")
 
         if len(voted_player_ids) > room.undercover_count:
             raise InvalidVoteError("Too many votes selected.")
@@ -231,6 +237,7 @@ class UndercoverGameService:
         room.votes = {}
         room.eliminated_player_id = None
         room.eliminated_player_is_undercover = None
+        room.last_vote_result = None
         room.current_asker_id = None
         room.current_target_id = None
         room.round_number = 1
@@ -259,15 +266,31 @@ class UndercoverGameService:
 
     def _resolve_votes(self, room: UndercoverRoom) -> None:
         """
-        Resolve vote results.
+        Resolve votes only when all active players have voted.
 
-        Rule implemented from your description:
-        - If enough players vote for one target, that target is immediately revealed.
-        - If revealed player is not undercover, the round ends and undercovers win.
-        - If all undercovers are caught, normal players win.
+        Rules:
+        - The player with the highest unique vote count is eliminated.
+        - If the highest vote count is tied, nobody is eliminated.
+        - Tie starts a new round.
+        - If all undercovers are eliminated, normal players win.
+        - If active undercovers are greater than or equal to active innocents,
+          undercovers win.
+        - Otherwise the game continues to the next round.
         """
         active_players = [p for p in room.players.values() if not p.is_eliminated]
-        total_active = len(active_players)
+        active_player_ids = {p.id for p in active_players}
+
+        room.eliminated_player_id = None
+        room.eliminated_player_is_undercover = None
+        room.last_vote_result = None
+
+        all_active_players_voted = all(
+            player_id in room.votes and len(room.votes[player_id]) > 0
+            for player_id in active_player_ids
+        )
+
+        if not all_active_players_voted:
+            return
 
         target_counts: Dict[str, int] = {player.id: 0 for player in active_players}
 
@@ -279,42 +302,61 @@ class UndercoverGameService:
                 if target_id in target_counts:
                     target_counts[target_id] += 1
 
-        threshold = total_active - room.undercover_count
+        max_votes = max(target_counts.values(), default=0)
+        top_targets = [target_id for target_id, count in target_counts.items() if count == max_votes]
 
-        for target_id, count in target_counts.items():
-            if count >= threshold:
-                target_player = room.players[target_id]
-                target_player.is_eliminated = True
-                room.eliminated_player_id = target_id
-                room.eliminated_player_is_undercover = target_player.is_undercover
+        # Tie or no valid winner: nobody eliminated, start next round
+        if max_votes == 0 or len(top_targets) != 1:
+            room.last_vote_result = "tie"
+            room.votes = {
+                player.id: []
+                for player in room.players.values()
+                if not player.is_eliminated
+            }
+            room.round_number += 1
+            self._assign_round_pair(room)
+            return
 
-                if not target_player.is_undercover:
-                    room.ended = True
-                    room.winner = "undercover"
-                    room.current_asker_id = None
-                    room.current_target_id = None
-                    return
+        eliminated_player_id = top_targets[0]
+        eliminated_player = room.players[eliminated_player_id]
+        eliminated_player.is_eliminated = True
 
-                remaining_undercovers = [
-                    p for p in room.players.values()
-                    if p.is_undercover and not p.is_eliminated
-                ]
+        room.eliminated_player_id = eliminated_player_id
+        room.eliminated_player_is_undercover = eliminated_player.is_undercover
+        room.last_vote_result = "eliminated"
 
-                if not remaining_undercovers:
-                    room.ended = True
-                    room.winner = "players"
-                    room.current_asker_id = None
-                    room.current_target_id = None
-                    return
+        alive_undercovers = [
+            p for p in room.players.values()
+            if p.is_undercover and not p.is_eliminated
+        ]
+        alive_innocents = [
+            p for p in room.players.values()
+            if not p.is_undercover and not p.is_eliminated
+        ]
 
-                room.votes = {
-                    player.id: []
-                    for player in room.players.values()
-                    if not player.is_eliminated
-                }
-                room.round_number += 1
-                self._assign_round_pair(room)
-                return
+        if not alive_undercovers:
+            room.ended = True
+            room.winner = "players"
+            room.current_asker_id = None
+            room.current_target_id = None
+            room.votes = {}
+            return
+
+        if len(alive_undercovers) >= len(alive_innocents):
+            room.ended = True
+            room.winner = "undercover"
+            room.current_asker_id = None
+            room.current_target_id = None
+            room.votes = {}
+            return
+
+        room.votes = {
+            player.id: []
+            for player in room.players.values()
+            if not player.is_eliminated
+        }
+        room.round_number += 1
+        self._assign_round_pair(room)
 
     def _get_room(self, room_code: str) -> UndercoverRoom:
         """
@@ -339,6 +381,7 @@ class UndercoverGameService:
             "votes": room.votes,
             "eliminated_player_id": room.eliminated_player_id,
             "eliminated_player_is_undercover": room.eliminated_player_is_undercover,
+            "last_vote_result": room.last_vote_result,
             "current_asker_id": room.current_asker_id,
             "current_target_id": room.current_target_id,
             "round_number": room.round_number,
@@ -368,6 +411,7 @@ class UndercoverGameService:
             votes=data["votes"],
             eliminated_player_id=data.get("eliminated_player_id"),
             eliminated_player_is_undercover=data.get("eliminated_player_is_undercover"),
+            last_vote_result=data.get("last_vote_result"),
             current_asker_id=data.get("current_asker_id"),
             current_target_id=data.get("current_target_id"),
             round_number=data.get("round_number", 1),

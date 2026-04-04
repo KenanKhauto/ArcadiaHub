@@ -1,13 +1,7 @@
 /**
  * Frontend logic for the Undercover game.
  *
- * This version uses the FastAPI backend and supports:
- * - room creation / joining
- * - host deletion of room
- * - non-host leaving room before game starts
- * - asker / target display per round
- * - round number display
- * - restart game
+ * FastAPI backend version.
  */
 
 let currentRoomCode = localStorage.getItem("undercover_room_code") || null;
@@ -17,6 +11,10 @@ let currentRoomData = null;
 let selectedVotes = [];
 let cachedSecretWord = "";
 let isHost = false;
+
+let currentScreen = null;
+let lastRenderedSignature = null;
+let lastAnnouncementKey = null;
 
 const categoryLabels = {
     cars: "سيارات 🚗",
@@ -87,24 +85,21 @@ function showSelection() {
     currentPlayerName = name;
     localStorage.setItem("undercover_player_name", currentPlayerName);
 
-    hideAll();
-    document.getElementById("screen-select").classList.remove("hidden");
+    switchScreen("screen-select");
 }
 
 /**
  * Return to lobby.
  */
 function goBackToLobby() {
-    hideAll();
-    document.getElementById("screen-lobby").classList.remove("hidden");
+    switchScreen("screen-lobby");
 }
 
 /**
  * Show Undercover setup screen.
  */
 function showMondasSetup() {
-    hideAll();
-    document.getElementById("screen-mondas-setup").classList.remove("hidden");
+    switchScreen("screen-mondas-setup");
 }
 
 /**
@@ -152,6 +147,8 @@ async function createRoom() {
     isHost = true;
     selectedVotes = [];
     cachedSecretWord = "";
+    lastRenderedSignature = null;
+    lastAnnouncementKey = null;
 
     localStorage.setItem("undercover_room_code", currentRoomCode);
     localStorage.setItem("undercover_player_id", currentPlayerId);
@@ -196,6 +193,8 @@ async function joinRoom() {
     isHost = currentPlayerId === data.host_id;
     selectedVotes = [];
     cachedSecretWord = "";
+    lastRenderedSignature = null;
+    lastAnnouncementKey = null;
 
     localStorage.setItem("undercover_room_code", currentRoomCode);
     localStorage.setItem("undercover_player_id", currentPlayerId);
@@ -222,6 +221,8 @@ async function startMondasGame() {
     currentRoomData = data;
     isHost = currentPlayerId === data.host_id;
     selectedVotes = [];
+    lastRenderedSignature = null;
+    lastAnnouncementKey = null;
     await showRevealScreen();
 }
 
@@ -244,8 +245,7 @@ async function showRevealScreen() {
 
     cachedSecretWord = data.secret_word;
 
-    hideAll();
-    document.getElementById("screen-reveal").classList.remove("hidden");
+    switchScreen("screen-reveal");
 
     const wordBox = document.getElementById("mondasWord");
     wordBox.textContent = cachedSecretWord;
@@ -283,30 +283,107 @@ async function refreshRoomState() {
     currentRoomData = data;
     isHost = currentPlayerId === data.host_id;
 
+    const stateSignature = buildStateSignature(data);
+
     if (data.ended) {
-        renderGameOver(data);
+        if (currentScreen !== "screen-game-over" || lastRenderedSignature !== stateSignature) {
+            renderGameOver(data);
+            lastRenderedSignature = stateSignature;
+        }
         return;
     }
 
     if (!data.started) {
-        renderWaitingRoom(data);
+        if (currentScreen !== "screen-wait" || lastRenderedSignature !== stateSignature) {
+            renderWaitingRoom(data);
+            lastRenderedSignature = stateSignature;
+        }
         return;
     }
 
     if (!cachedSecretWord) {
-        await showRevealScreen();
+        if (currentScreen !== "screen-reveal") {
+            await showRevealScreen();
+        }
         return;
     }
 
-    renderPlayScreen(data);
+    if (currentScreen !== "screen-play" || lastRenderedSignature !== stateSignature) {
+        renderPlayScreen(data);
+        lastRenderedSignature = stateSignature;
+    }
+
+    announceRoundEventIfNeeded(data);
+}
+
+/**
+ * Build a minimal signature so we only rerender when state meaningfully changed.
+ */
+function buildStateSignature(data) {
+    const playersSignature = data.players
+        .map((player) => `${player.id}:${player.is_eliminated ? 1 : 0}`)
+        .join("|");
+
+    const votesSignature = Object.entries(data.votes || {})
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([voterId, targets]) => `${voterId}:${targets.slice().sort().join(",")}`)
+        .join("|");
+
+    return JSON.stringify({
+        started: data.started,
+        ended: data.ended,
+        winner: data.winner,
+        round_number: data.round_number,
+        current_asker_id: data.current_asker_id,
+        current_target_id: data.current_target_id,
+        eliminated_player_id: data.eliminated_player_id,
+        eliminated_player_is_undercover: data.eliminated_player_is_undercover,
+        last_vote_result: data.last_vote_result,
+        players: playersSignature,
+        votes: votesSignature
+    });
+}
+
+/**
+ * Show one announcement per round result.
+ */
+function announceRoundEventIfNeeded(data) {
+    let eventKey = null;
+
+    if (data.last_vote_result === "tie") {
+        eventKey = `tie-round-${data.round_number}`;
+    } else if (data.last_vote_result === "eliminated" && data.eliminated_player_id) {
+        eventKey = `elim-${data.round_number}-${data.eliminated_player_id}`;
+    }
+
+    if (!eventKey || eventKey === lastAnnouncementKey) {
+        return;
+    }
+
+    lastAnnouncementKey = eventKey;
+
+    if (data.last_vote_result === "tie") {
+        alert("تعادل في التصويت. لم يُقصَ أحد. تابعوا النقاش وابدأوا جولة جديدة.");
+        return;
+    }
+
+    if (data.last_vote_result === "eliminated") {
+        const eliminated = data.players.find((p) => p.id === data.eliminated_player_id);
+        if (!eliminated) return;
+
+        if (data.eliminated_player_is_undercover) {
+            alert(`تم إقصاء ${eliminated.name} وكان مندساً.`);
+        } else {
+            alert(`تم إقصاء ${eliminated.name} وكان بريئاً.`);
+        }
+    }
 }
 
 /**
  * Render waiting room.
  */
 function renderWaitingRoom(data) {
-    hideAll();
-    document.getElementById("screen-wait").classList.remove("hidden");
+    switchScreen("screen-wait");
 
     document.getElementById("displayCode").textContent = data.room_code;
 
@@ -341,8 +418,7 @@ function renderWaitingRoom(data) {
  * Render play screen.
  */
 function renderPlayScreen(data) {
-    hideAll();
-    document.getElementById("screen-play").classList.remove("hidden");
+    switchScreen("screen-play");
 
     const roundInfo = document.getElementById("roundInfo");
     roundInfo.textContent = `الجولة رقم ${data.round_number}`;
@@ -376,6 +452,21 @@ function renderPlayScreen(data) {
 }
 
 /**
+ * Count how many votes a player currently has.
+ */
+function getVotesReceived(data, playerId) {
+    let count = 0;
+
+    Object.values(data.votes || {}).forEach((targets) => {
+        if (targets.includes(playerId)) {
+            count += 1;
+        }
+    });
+
+    return count;
+}
+
+/**
  * Render players voting list.
  */
 function renderVoters(data) {
@@ -392,6 +483,7 @@ function renderVoters(data) {
         div.className = "vote-item" + (player.is_eliminated ? " eliminated" : "");
 
         const isSelected = selectedVotes.includes(player.id);
+        const votesReceived = getVotesReceived(data, player.id);
 
         let buttonHtml = "";
         if (!player.is_eliminated && player.id !== currentPlayerId) {
@@ -404,7 +496,7 @@ function renderVoters(data) {
         }
 
         div.innerHTML = `
-            <span>${player.name} (${player.votes_received})</span>
+            <span>${player.name} (${votesReceived})</span>
             ${buttonHtml}
         `;
 
@@ -460,25 +552,16 @@ async function submitVotes() {
     currentRoomData = data;
     isHost = currentPlayerId === data.host_id;
     selectedVotes = [];
+    lastRenderedSignature = null;
 
     if (data.ended) {
         renderGameOver(data);
+        announceRoundEventIfNeeded(data);
         return;
     }
 
     renderPlayScreen(data);
-
-    if (data.eliminated_player_id) {
-        const eliminated = data.players.find((p) => p.id === data.eliminated_player_id);
-
-        if (eliminated) {
-            if (data.eliminated_player_is_undercover) {
-                alert(`تم كشف ${eliminated.name} وكان مندساً!`);
-            } else {
-                alert(`${eliminated.name} ليس مندساً. فاز المندسون!`);
-            }
-        }
-    }
+    announceRoundEventIfNeeded(data);
 }
 
 /**
@@ -508,6 +591,8 @@ async function restartGame() {
     selectedVotes = [];
     currentRoomData = data;
     isHost = currentPlayerId === data.host_id;
+    lastRenderedSignature = null;
+    lastAnnouncementKey = null;
     renderWaitingRoom(data);
 }
 
@@ -571,15 +656,14 @@ async function deleteCurrentRoom() {
  * Render final screen.
  */
 function renderGameOver(data) {
-    hideAll();
-    document.getElementById("screen-game-over").classList.remove("hidden");
+    switchScreen("screen-game-over");
 
     const finalMsg = document.getElementById("final-msg");
 
     if (data.winner === "players") {
         finalMsg.textContent = "كفو! تم كشف جميع المندسين بنجاح ✅";
     } else {
-        finalMsg.textContent = "خسارة! تم التصويت على لاعب بريء.. فاز المندسون!";
+        finalMsg.textContent = "انتهت اللعبة! أصبح عدد المندسين مساوياً أو أكبر من الأبرياء.";
     }
 
     const replayArea = document.getElementById("adminReplayArea");
@@ -617,6 +701,9 @@ function clearLocalGameState() {
     selectedVotes = [];
     cachedSecretWord = "";
     isHost = false;
+    currentScreen = null;
+    lastRenderedSignature = null;
+    lastAnnouncementKey = null;
 }
 
 /**
@@ -624,6 +711,22 @@ function clearLocalGameState() {
  */
 function hideAll() {
     document.querySelectorAll(".card").forEach((card) => card.classList.add("hidden"));
+}
+
+/**
+ * Switch visible screen only if needed.
+ */
+function switchScreen(screenId) {
+    if (currentScreen === screenId) {
+        return;
+    }
+
+    hideAll();
+    const target = document.getElementById(screenId);
+    if (target) {
+        target.classList.remove("hidden");
+        currentScreen = screenId;
+    }
 }
 
 /**
