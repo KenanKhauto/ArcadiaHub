@@ -8,6 +8,8 @@ GAMES = [
         "path": "/games/bluff",
         "coming_soon": False,
         "disabled": False,
+        "outline_class": "game-outline-bluff",
+        "theme_class": "theme-bluff",
     },
     {
         "id": "undercover",
@@ -16,6 +18,8 @@ GAMES = [
         "path": "/games/undercover",
         "coming_soon": False,
         "disabled": False,
+        "outline_class": "game-outline-undercover",
+        "theme_class": "theme-undercover",
     },
     {
         "id": "who_am_i",
@@ -24,5 +28,7 @@ GAMES = [
         "path": "/games/who-am-i",
         "coming_soon": False,
         "disabled": False,
+        "outline_class": "game-outline-whoami",
+        "theme_class": "theme-whoami",
     }
 ]
