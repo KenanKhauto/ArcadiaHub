@@ -28,11 +28,13 @@ const bluffPlayerCountOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 const bluffRoundsOptions = [1, 3, 5, 7, 10];
 
 const bluffCategoryLabels = {
-    capitals: "عواصم 🌍",
-    football: "كرة قدم ⚽",
-    syrian_food: "أكلات سورية 🍲",
-    general: "معلومات عامة 🧠",
-    strange_facts: "معلومات غريبة"
+    capitals: "دول",
+    football: "كرة قدم",
+    syria: "سوريا",
+    general: "معلومات عامة",
+    strange_facts: "معلومات غريبة",
+    islam: "إسلاميات",
+
 };
 
 /**
