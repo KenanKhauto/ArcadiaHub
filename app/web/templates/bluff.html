@@ -16,30 +16,14 @@
     <h2 style="color:var(--primary)">إعدادات اللعبة</h2>
 
     <label>عدد اللاعبين:</label>
-    <select id="bluffPlayerCount">
-        <option value="2">2 لاعبين</option>
-        <option value="3">3 لاعبين</option>
-        <option value="4" selected>4 لاعبين</option>
-        <option value="5">5 لاعبين</option>
-        <option value="6">6 لاعبين</option>
-        <option value="7">7 لاعبين</option>
-        <option value="8">8 لاعبين</option>
-        <option value="9">9 لاعبين</option>
-        <option value="10">10 لاعبين</option>
-    </select>
-    </br>
+    <div id="bluffPlayerCountGrid" class="category-grid"></div>
 
     <label>عدد الجولات:</label>
-    <select id="bluffRounds">
-        <option value="1">1 جولة</option>
-        <option value="3" selected>3 جولات</option>
-        <option value="5">5 جولات</option>
-        <option value="7">7 جولات</option>
-        <option value="10">10 جولات</option>
-    </select>
+    <div id="bluffRoundsGrid" class="category-grid"></div>
 
-    <label>التصنيف:</label>
-    <select id="bluffCategory"></select>
+    <label>التصنيفات (اختر حتى 12):</label>
+    <div id="bluffCategorySelectionInfo" style="color:#aaa; margin-bottom:10px;">تم اختيار 0 / 12</div>
+    <div id="bluffCategoryGrid" class="category-grid"></div>
 
     <button class="btn btn-primary" onclick="createBluffRoom()">تأكيد الإعدادات</button>
     <button class="btn" onclick="goBackToBluffLobby()">رجوع</button>

@@ -16,27 +16,14 @@
     <h2 style="color:var(--primary)">إعدادات الجولة</h2>
 
     <label>عدد اللاعبين:</label>
-    <select id="playerCount">
-        <option value="3">3 لاعبين</option>
-        <option value="4" selected>4 لاعبين</option>
-        <option value="5">5 لاعبين</option>
-        <option value="6">6 لاعبين</option>
-        <option value="7">7 لاعبين</option>
-        <option value="8">8 لاعبين</option>
-        <option value="9">9 لاعبين</option>
-        <option value="10">10 لاعبين</option>
-    </select>
-    </br>
-    <label>عدد المندسين:</label>
-    <select id="numSpies">
-        <option value="1">1 مندس</option>
-        <option value="2">2 مندسين</option>
-        <option value="3">3 مندسين</option>
-        <option value="4">4 مندسين</option>
-    </select>
+    <div id="playerCountGrid" class="category-grid"></div>
 
-    <label>التصنيف:</label>
-    <select id="mondasCat"></select>
+    <label>عدد المندسين:</label>
+    <div id="undercoverCountGrid" class="category-grid"></div>
+
+    <label>التصنيفات (اختر حتى 12):</label>
+    <div id="categorySelectionInfo" style="color:#aaa; margin-bottom:10px;">تم اختيار 0 / 12</div>
+    <div id="mondasCategoryGrid" class="category-grid"></div>
 
     <button class="btn btn-primary" onclick="createRoom()">تأكيد الإعدادات</button>
     <button class="btn" onclick="showSelection()">رجوع</button>
