@@ -38,7 +38,7 @@ const bluffCategoryLabels = {
     animals: "حيوانات"
     proverbs: "أمثال شامية"
     player career: "مسيرة لاعب"
-
+    
 };
 
 /**
