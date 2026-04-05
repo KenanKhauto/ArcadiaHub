@@ -277,8 +277,7 @@ class WhoAmIService:
             room.solve_counter += 1
             player.solved_order = room.solve_counter
 
-            if player_id in room.active_turn_order:
-                room.active_turn_order.remove(player_id)
+            self._advance_turn(room, solved_player_id=player_id)
 
             if not room.active_turn_order:
                 room.ended = True
@@ -332,26 +331,38 @@ class WhoAmIService:
 
     def _advance_turn(self, room: WhoAmIRoom, solved_player_id: str | None = None) -> None:
         """
-        Advance to the next active player's turn.
+        Advance to the next active player's turn while preserving round fairness.
+        Each player gets exactly one turn per round.
         """
+
+        # Remove solved player BEFORE computing next turn
+        if solved_player_id and solved_player_id in room.active_turn_order:
+            room.active_turn_order.remove(solved_player_id)
+
         if not room.active_turn_order:
             room.current_turn_player_id = None
             return
 
+        # First turn initialization
         if room.current_turn_player_id is None:
             room.current_turn_player_id = room.active_turn_order[0]
             return
 
-        if solved_player_id is not None and solved_player_id == room.current_turn_player_id:
-            current_index = -1
-        else:
+        # Find current index safely
+        if room.current_turn_player_id in room.active_turn_order:
             current_index = room.active_turn_order.index(room.current_turn_player_id)
+        else:
+            # If current player was removed (solved), continue from previous index
+            current_index = -1
 
-        next_index = (current_index + 1) % len(room.active_turn_order)
-        room.current_turn_player_id = room.active_turn_order[next_index]
+        next_index = current_index + 1
 
-        if next_index == 0:
+        # New round if we reached the end
+        if next_index >= len(room.active_turn_order):
+            next_index = 0
             room.turn_number += 1
+
+        room.current_turn_player_id = room.active_turn_order[next_index]
 
     def _get_room(self, room_code: str) -> WhoAmIRoom:
         """
