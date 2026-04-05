@@ -11,6 +11,7 @@
         {% for game in games %}
             <a href="{{ game.path }}" class="game-link">
                 <div class="game-option {{ game.get('outline_class', '') }} {% if game.get('disabled') %}disabled-opt{% endif %}">
+                    <img src="{{ game.logo }}" class="game-logo" />
                     {% if game.get('coming_soon') %}
                         <div class="cs-tag">Coming Soon</div>
                     {% endif %}
