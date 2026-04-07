@@ -10,13 +10,13 @@ class CreateRoomRequest(BaseModel):
     host_name: str = Field(..., min_length=1, max_length=50)
     player_count: int = Field(..., ge=2, le=12)
     categories: list[str] = Field(..., min_length=1, max_length=12)
-
+    character_id: str = "char1"
 
 class JoinRoomRequest(BaseModel):
     """Request body for joining a room."""
 
     player_name: str = Field(..., min_length=1, max_length=50)
-
+    character_id: str = "char1"
 
 class RevealIdentityRequest(BaseModel):
     """Request body for revealing the current player's identity."""
@@ -63,6 +63,7 @@ class PlayerView(BaseModel):
     has_guessed_correctly: bool
     guess_count: int
     solved_order: Optional[int]
+    character_id: str = "char1"
 
 
 class RoomStateResponse(BaseModel):

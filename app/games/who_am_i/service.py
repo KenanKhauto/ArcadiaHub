@@ -29,6 +29,7 @@ class WhoAmIService:
     def create_room(
         self,
         host_name: str,
+        character_id:str,
         player_count: int,
         categories: list[str],
     ) -> WhoAmIRoom:
@@ -54,12 +55,12 @@ class WhoAmIService:
             categories=categories,
             player_count=player_count,
         )
-        room.players[host_id] = WhoAmIPlayer(id=host_id, name=host_name)
+        room.players[host_id] = WhoAmIPlayer(id=host_id, name=host_name, character_id=character_id)
 
         self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
-    def join_room(self, room_code: str, player_name: str) -> WhoAmIRoom:
+    def join_room(self, room_code: str, player_name: str, character_id:str) -> WhoAmIRoom:
         """
         Join an existing room before the game starts.
         """
@@ -75,7 +76,7 @@ class WhoAmIService:
             raise ValueError("Player name already exists in this room.")
 
         player_id = str(uuid.uuid4())
-        room.players[player_id] = WhoAmIPlayer(id=player_id, name=player_name)
+        room.players[player_id] = WhoAmIPlayer(id=player_id, name=player_name, character_id=character_id)
 
         self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
@@ -419,6 +420,7 @@ class WhoAmIService:
                     "has_guessed_correctly": player.has_guessed_correctly,
                     "guess_count": player.guess_count,
                     "solved_order": player.solved_order,
+                    "character_id": player.character_id,
                 }
                 for player_id, player in room.players.items()
             },
@@ -453,6 +455,7 @@ class WhoAmIService:
                 has_guessed_correctly=player_data.get("has_guessed_correctly", False),
                 guess_count=player_data.get("guess_count", 0),
                 solved_order=player_data.get("solved_order"),
+                character_id=player_data.get("character_id", "char1")
             )
 
         return room

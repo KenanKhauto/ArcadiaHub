@@ -1,0 +1,17 @@
+.theme-undercover {
+    --game-accent: #00E08A;
+    --game-accent-soft: rgba(0, 224, 138, 0.16);
+    --game-accent-strong: rgba(0, 224, 138, 0.28);
+    --game-shadow: 0 0 16px rgba(0, 224, 138, 0.24);
+
+    --error-bg: rgba(0, 224, 138, 0.08);
+    --error-border: rgba(0, 224, 138, 0.22);
+}
+
+.theme-undercover .card {
+    border-color: var(--game-accent);
+}
+
+.theme-undercover .game-header-logo {
+    filter: drop-shadow(0 0 10px rgba(0, 224, 138, 0.45));
+}

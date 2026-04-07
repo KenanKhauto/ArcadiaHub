@@ -14,6 +14,11 @@
         <div style="margin:10px; color:#666">— أو —</div>
         <input type="text" id="roomInput" placeholder="كود الغرفة">
         <button class="btn" onclick="joinRoom()">انضمام للغرفة</button>
+        <label>اختر الشخصية:</label>
+        <div class="whoami-character-picker">
+            <img id="characterPreview" class="whoami-character-preview" src="/static/images/char1.png" alt="selected character">
+            <div id="characterGrid" class="whoami-character-grid"></div>
+        </div>
     </div>
 
     <div id="screen-setup" class="card hidden">
@@ -31,7 +36,16 @@
 
     <div id="screen-wait" class="card hidden">
         <h3>كود الغرفة: <span id="displayCode" style="color:var(--primary)"></span></h3>
-        <div id="playerList" style="margin:15px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;"></div>
+        <div class="table-wrapper" style="margin:15px 0;">
+            <table class="bluff-table whoami-players-table">
+                <thead>
+                    <tr>
+                        <th>اللاعب</th>
+                    </tr>
+                </thead>
+                <tbody id="playerList"></tbody>
+            </table>
+        </div>
 
         <div id="adminArea" class="hidden">
             <button class="btn btn-primary" onclick="startGame()">ابدأ اللعبة 🔥</button>

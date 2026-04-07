@@ -10,6 +10,8 @@ let currentPlayerKnowledge = [];
 let selectedCategories = [];
 const MAX_CATEGORIES = 12;
 let selectedPlayerCount = null;
+let selectedCharacter = localStorage.getItem("whoami_character_id") || "char1";
+const whoAmICharacterOptions = Array.from({ length: 12 }, (_, i) => `char${i + 1}`);
 const playerCountOptions = [2, 3, 4, 5, 6, 7, 8];
 
 const categoryLabels = {
@@ -23,6 +25,7 @@ const categoryLabels = {
 document.addEventListener("DOMContentLoaded", async () => {
     renderPlayerCountButtons();
     await loadCategories();
+    renderCharacterButtons();
 
     if (currentPlayerName) {
         document.getElementById("pName").value = currentPlayerName;
@@ -36,6 +39,61 @@ document.addEventListener("DOMContentLoaded", async () => {
         await refreshRoomState();
     }
 });
+
+function renderCharacterButtons() {
+    const container = document.getElementById("characterGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    whoAmICharacterOptions.forEach((characterId) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "character-btn";
+        button.dataset.characterId = characterId;
+        button.onclick = () => selectCharacter(characterId);
+
+        button.innerHTML = `
+            <img src="/static/images/${characterId}.png" class="character-btn-img" alt="${characterId}">
+        `;
+
+        container.appendChild(button);
+    });
+
+    updateCharacterButtonsState();
+}
+
+function selectCharacter(characterId) {
+    selectedCharacter = characterId;
+    localStorage.setItem("whoami_character_id", selectedCharacter);
+    updateCharacterButtonsState();
+}
+
+function updateCharacterButtonsState() {
+    const buttons = document.querySelectorAll("#characterGrid .character-btn");
+
+    buttons.forEach((btn) => {
+        const characterId = btn.dataset.characterId;
+        btn.classList.toggle("active", characterId === selectedCharacter);
+    });
+
+    const preview = document.getElementById("characterPreview");
+    if (preview) {
+        preview.src = `/static/images/${selectedCharacter}.png`;
+    }
+}
+
+function buildWhoAmIPlayerIdentity(player) {
+    return `
+        <div class="whoami-player-identity">
+            <img src="/static/images/${player.character_id || 'char1'}.png" class="whoami-player-avatar" alt="${escapeHtml(player.name)}">
+            <div class="whoami-player-text">
+                <span class="whoami-player-name">${escapeHtml(player.name)}</span>
+            </div>
+        </div>
+    `;
+}
+
 
 function renderPlayerCountButtons() {
     const container = document.getElementById("playerCountGrid");
@@ -194,7 +252,8 @@ async function createRoom() {
         body: JSON.stringify({
             host_name: hostName,
             player_count: playerCount,
-            categories: selectedCategories
+            categories: selectedCategories,
+            character_id: selectedCharacter
         })
     });
 
@@ -234,7 +293,10 @@ async function joinRoom() {
     const response = await fetch(`/api/who-am-i/rooms/${roomCode}/join`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ player_name: name })
+        body: JSON.stringify({ 
+            player_name: name,
+            character_id: selectedCharacter 
+        })
     });
 
     const data = await response.json();
@@ -513,12 +575,11 @@ function renderWaitingRoom(data) {
     playerList.innerHTML = "";
 
     data.players.forEach((player) => {
-        const badge = document.createElement("span");
-        badge.style.background = "#333";
-        badge.style.padding = "5px 10px";
-        badge.style.borderRadius = "5px";
-        badge.textContent = player.name;
-        playerList.appendChild(badge);
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${buildWhoAmIPlayerIdentity(player)}</td>
+        `;
+        playerList.appendChild(row);
     });
 
     if (isHost) {
@@ -639,7 +700,6 @@ function renderPlayScreen(data) {
 
 function renderPlayersState(data) {
     const container = document.getElementById("playersState");
-    container.innerHTML = "<h4>حالة اللاعبين:</h4>";
 
     const sourcePlayers = currentPlayerKnowledge.length > 0
         ? currentPlayerKnowledge
@@ -665,27 +725,45 @@ function renderPlayersState(data) {
         return a.name.localeCompare(b.name);
     });
 
-    sortedPlayers.forEach((player) => {
-        const div = document.createElement("div");
-        div.className = "vote-item";
-
-        let statusText = "";
-        if (player.has_guessed_correctly) {
-            statusText = `خمن بشكل صحيح ✅ | عدد المحاولات: ${player.guess_count}`;
-        } else {
-            statusText = `لم يخمن بعد | عدد المحاولات: ${player.guess_count}`;
-        }
+    const rows = sortedPlayers.map((player) => {
+        const statusText = player.has_guessed_correctly
+            ? "خمن بشكل صحيح ✅"
+            : "لم يخمن بعد";
 
         const identityText = player.visible_identity
-            ? ` | الهوية: ${player.visible_identity}`
-            : ` | الهوية: مخفية`;
+            ? player.visible_identity
+            : "مخفية";
 
-        div.innerHTML = `
-            <span>${player.name}</span>
-            <span>${statusText}${identityText}</span>
+        const rowClass = player.has_guessed_correctly ? "whoami-player-done-row" : "";
+
+        return `
+            <tr class="${rowClass}">
+                <td>${buildWhoAmIPlayerIdentity(player)}</td>
+                <td>${statusText}</td>
+                <td>${player.guess_count}</td>
+                <td>${identityText}</td>
+            </tr>
         `;
-        container.appendChild(div);
-    });
+    }).join("");
+
+    container.innerHTML = `
+        <h4>حالة اللاعبين:</h4>
+        <div class="table-wrapper">
+            <table class="bluff-table whoami-players-table">
+                <thead>
+                    <tr>
+                        <th>اللاعب</th>
+                        <th>الحالة</th>
+                        <th>عدد المحاولات</th>
+                        <th>الهوية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
 function renderGameOver(data) {
@@ -716,9 +794,13 @@ function renderRankingTable(data) {
     });
 
     const rows = rankedPlayers.map((player, index) => `
-        <tr>
+        <tr class="${
+            index === 0 ? 'rank-gold' :
+            index === 1 ? 'rank-silver' :
+            index === 2 ? 'rank-bronze' : ''
+        }">
             <td>${index + 1}</td>
-            <td>${player.name}</td>
+            <td>${buildWhoAmIPlayerIdentity(player)}</td>
             <td>${player.guess_count}</td>
             <td>${player.solved_order ?? "-"}</td>
         </tr>
@@ -757,6 +839,8 @@ function clearLocalGameState() {
     lastRoomSnapshot = null;
     currentPlayerKnowledge = [];
     selectedCategories = [];
+    localStorage.removeItem("whoami_character_id");
+    selectedCharacter = "char1";
 }
 
 function resetAndExit() {

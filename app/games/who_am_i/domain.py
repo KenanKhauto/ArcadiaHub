@@ -18,6 +18,7 @@ class WhoAmIPlayer:
     has_guessed_correctly: bool = False
     guess_count: int = 0
     solved_order: Optional[int] = None
+    character_id: str = "char1"
 
 
 @dataclass

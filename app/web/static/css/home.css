@@ -1,0 +1,191 @@
+/* ================= HOME / GAMES PAGE ================= */
+
+.games-page-card {
+    max-width: 900px;
+}
+
+.games-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 28px;
+    text-align: center;
+}
+
+.games-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.games-icon {
+    width: 280px;
+    height: 280px;
+    object-fit: contain;
+    margin-bottom: 6px;
+    margin-top: 0px;
+    filter: drop-shadow(0 0 10px rgba(255, 200, 80, 0.65));
+}
+
+.games-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.games-title {
+    margin: 0;
+    font-family: 'Cinzel', serif;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: linear-gradient(
+        90deg,
+        var(--brand-gold-strong),
+        var(--brand-gold),
+        var(--brand-gold-deep)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 10px rgba(255, 200, 80, 0.5);
+}
+
+.games-subtitle {
+    margin: 4px 0 0;
+    color: #aaa;
+    font-size: 14px;
+    text-align: center;
+}
+
+.games-divider {
+    width: 220px;
+    max-width: 60%;
+    margin-top: 8px;
+    display: block;
+    filter: drop-shadow(0 0 8px rgba(255, 200, 80, 0.45));
+    animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 6px rgba(255, 200, 80, 0.5));
+    }
+    50% {
+        filter: drop-shadow(0 0 14px rgba(255, 200, 80, 0.9));
+    }
+}
+
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    margin-top: 24px;
+}
+
+.game-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.game-option {
+    position: relative;
+    background: rgba(20, 20, 20, 0.2);
+    backdrop-filter: blur(5px);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 18px;
+    min-height: 150px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.game-option:hover {
+    transform: translateY(-4px);
+}
+
+.game-logo {
+    width: 100px;
+    height: 80px;
+    margin-bottom: 10px;
+    object-fit: contain;
+    opacity: 0.95;
+}
+
+.game-title {
+    margin: 0 0 10px;
+    font-size: 26px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.game-description {
+    margin: 0;
+    color: #999;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+/* ================= HOME CARD OUTLINES ================= */
+
+.game-outline-bluff {
+    border-color: #E6B657;
+    box-shadow: 0 0 18px rgba(230, 182, 87, 0.18);
+}
+
+.game-outline-bluff:hover {
+    box-shadow: 0 0 24px rgba(230, 182, 87, 0.24);
+}
+
+.game-outline-undercover {
+    border-color: #00E08A;
+    box-shadow: 0 0 18px rgba(0, 224, 138, 0.18);
+}
+
+.game-outline-undercover:hover {
+    box-shadow: 0 0 24px rgba(0, 224, 138, 0.24);
+}
+
+.game-outline-whoami {
+    border-color: #D2D52E;
+    box-shadow: 0 0 18px rgba(210, 213, 46, 0.18);
+}
+
+.game-outline-whoami:hover {
+    box-shadow: 0 0 24px rgba(210, 213, 46, 0.24);
+}
+
+.cs-tag {
+    position: absolute;
+    top: 12px;
+    left: -32px;
+    background: var(--game-accent);
+    color: #111;
+    padding: 5px 38px;
+    font-size: 10px;
+    transform: rotate(-45deg);
+    font-weight: bold;
+    z-index: 2;
+}
+
+.disabled-opt {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.2);
+    border-color: #333;
+}
+
+.disabled-opt:hover {
+    transform: none;
+}

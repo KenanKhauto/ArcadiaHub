@@ -46,6 +46,7 @@ def build_room_response(room) -> RoomStateResponse:
                 has_guessed_correctly=player.has_guessed_correctly,
                 guess_count=player.guess_count,
                 solved_order=player.solved_order,
+                character_id=player.character_id,
             )
             for player in room.players.values()
         ],
@@ -66,6 +67,7 @@ def create_room(payload: CreateRoomRequest):
             host_name=payload.host_name,
             player_count=payload.player_count,
             categories=payload.categories,
+            character_id=payload.character_id,
         )
         return build_room_response(room)
     except Exception as exc:
@@ -76,7 +78,7 @@ def create_room(payload: CreateRoomRequest):
 def join_room(room_code: str, payload: JoinRoomRequest):
     """Join an existing room."""
     try:
-        room = service.join_room(room_code, payload.player_name)
+        room = service.join_room(room_code, payload.player_name, payload.character_id)
         return build_room_response(room)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
