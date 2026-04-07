@@ -48,6 +48,8 @@ const bluffCategoryLabels = {
     animals: "حيوانات",
     proverbs: "أمثال شامية",
     player_career: "مسيرة لاعب",
+    gaming: "ألعاب الفيديو",
+
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
