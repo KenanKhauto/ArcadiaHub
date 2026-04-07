@@ -11,6 +11,7 @@ from app.web.router import router as web_router
 from app.games.undercover.router import router as undercover_router
 from app.games.who_am_i.router import router as who_am_i_router
 from app.games.bluff.router import router as bluff_router
+from app.games.draw_guess.router import router as draw_guess_router
 # from app.core.guess_matcher import preload_embedding_model
 
 
@@ -28,6 +29,7 @@ app.include_router(auth_router)
 app.include_router(undercover_router, prefix="/api/undercover", tags=["Undercover"])
 app.include_router(who_am_i_router, prefix="/api/who-am-i", tags=["Who Am I"])
 app.include_router(bluff_router, prefix="/api/bluff", tags=["Bluff"])
+app.include_router(draw_guess_router, prefix="/api/draw-guess", tags=["Draw and Guess"])
 
 @app.on_event("startup")
 def on_startup() -> None:

@@ -33,5 +33,16 @@ GAMES = [
         "outline_class": "game-outline-whoami",
         "theme_class": "theme-whoami",
         "logo": "/static/images/who-am-i-logo.png",
+    },
+    {
+        "id": "draw_guess",
+        "name": "ارسم و خمن",
+        "description": "لعبة اجتماعية خفيفة تحاول فيها تخمين ما يرسم امامك.",
+        "path": "/games/draw-guess",
+        "coming_soon": False,
+        "disabled": False,
+        "outline_class": "game-outline-draw-guess",
+        "theme_class": "theme-draw-guess",
+        "logo": "/static/images/who-am-i-logo.png",
     }
 ]

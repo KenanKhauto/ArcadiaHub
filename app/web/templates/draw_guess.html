@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Draw & Guess{% endblock %}
+
+{% block content %}
+<div class="{{ theme_class }}">
+    <div id="screen-draw-lobby" class="card glow-border">
+        <div class="game-title-box">
+            <img src="/static/images/main_logo.png" class="game-title-logo">
+            <span class="game-title-text">ارسم وخمن</span>
+        </div>
+
+        <input type="text" id="drawName" placeholder="اسمك المستعار....">
+
+        <label>اختر الشخصية:</label>
+
+
+        <button class="btn btn-primary" onclick="showDrawSetup()">إنشاء غرفة جديدة +</button>
+
+        <div style="display:flex; margin:10px; color:#666; justify-content:center;">أو انضمام للغرفة</div>
+
+        <input type="text" id="drawRoomInput" placeholder="كود الغرفة">
+        <button class="btn" onclick="joinDrawRoom()">انضمام للغرفة</button>
+        <div class="draw-character-picker">
+            <img id="drawCharacterPreview" class="draw-character-preview" src="/static/images/char1.png" alt="selected character">
+            <div id="drawCharacterGrid" class="draw-character-grid"></div>
+        </div>
+    </div>
+
+    <div id="screen-draw-setup" class="card hidden">
+        <h2 style="color:var(--primary)">إعدادات اللعبة</h2>
+
+        <label>عدد اللاعبين:</label>
+        <div id="drawPlayerCountGrid" class="category-grid"></div>
+
+        <label>عدد الجولات:</label>
+        <div id="drawRoundsGrid" class="category-grid"></div>
+
+        <label>لغة الكلمات:</label>
+        <div id="drawLanguageGrid" class="category-grid"></div>
+
+        <label>مدة الجولة:</label>
+        <div id="drawTimerGrid" class="category-grid"></div>
+
+        <label>التصنيفات:</label>
+        <div id="drawCategorySelectionInfo" style="color:#aaa; margin-bottom:10px;">تم اختيار 0</div>
+        <div id="drawCategoryGrid" class="category-grid"></div>
+
+        <button class="btn btn-primary" onclick="createDrawRoom()">تأكيد الإعدادات</button>
+        <button class="btn" onclick="goBackToDrawLobby()">رجوع</button>
+    </div>
+
+    <div id="screen-draw-wait" class="card hidden">
+        <h3>كود الغرفة: <span id="drawDisplayCode" style="color:var(--primary)"></span></h3>
+
+        <div class="table-wrapper" style="margin:15px 0;">
+            <table class="bluff-table draw-players-table">
+                <thead>
+                    <tr>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                    </tr>
+                </thead>
+                <tbody id="drawPlayerList"></tbody>
+            </table>
+        </div>
+
+        <div id="drawHostArea" class="hidden">
+            <button class="btn btn-primary" onclick="startDrawGame()">ابدأ اللعبة الآن 🔥</button>
+            <button class="btn" onclick="deleteDrawRoom()">حذف الغرفة 🗑️</button>
+        </div>
+
+        <div id="drawMemberArea" class="hidden">
+            <button class="btn" onclick="leaveDrawRoom()">خروج من الغرفة 🚪</button>
+        </div>
+
+        <p id="drawWaitMsg" style="color:#666">بانتظار أن يبدأ المنظم اللعب...</p>
+    </div>
+
+    <div id="screen-draw-word-choice" class="card hidden">
+        <div id="drawRoundInfoChoice" class="round-meta"></div>
+        <div id="drawDrawerInfoChoice" class="phase-info"></div>
+
+        <div id="drawWordChoiceBox" class="draw-word-choice-box"></div>
+
+        <div class="table-wrapper" style="margin-top:20px;">
+            <table class="bluff-table draw-players-table">
+                <thead>
+                    <tr>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                    </tr>
+                </thead>
+                <tbody id="drawScoreboardChoice"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="screen-draw-play" class="card hidden draw-play-card">
+        <div id="drawRoundInfoPlay" class="round-meta"></div>
+        <div id="drawTimerPlay" class="bluff-timer"></div>
+
+        <div id="drawTopStatus" class="phase-info"></div>
+
+        <div class="draw-play-layout">
+            <div class="draw-top-row">
+                <div class="draw-canvas-area">
+                    <div id="drawWordHint" class="draw-word-hint">؟ ؟ ؟</div>
+
+                    <div id="drawToolsBar" class="draw-tools-bar hidden">
+                        <input type="color" id="drawColorPicker" value="#000000">
+                        <select id="drawBrushSize">
+                            <option value="2">رفيع</option>
+                            <option value="4" selected>متوسط</option>
+                            <option value="7">سميك</option>
+                        </select>
+                        <button class="btn-sm" onclick="clearDrawCanvas()">مسح</button>
+                    </div>
+
+                    <div class="draw-canvas-wrapper">
+                        <canvas id="drawCanvas"></canvas>
+                    </div>
+                </div>
+
+                <div class="draw-guess-box">
+                    <h3>التخمينات</h3>
+                    <div id="drawGuessFeed" class="draw-guess-feed"></div>
+
+                    <div id="drawGuessInputArea">
+                        <input type="text" id="drawGuessInput" placeholder="اكتب تخمينك هنا..." onkeydown="handleDrawGuessEnter(event)">
+                        <button class="btn btn-primary" onclick="sendDrawGuess()">إرسال</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="draw-bottom-row">
+                <div class="table-wrapper">
+                    <table class="bluff-table draw-players-table">
+                        <thead>
+                            <tr>
+                                <th>اللاعب</th>
+                                <th>الحالة</th>
+                                <th>النقاط</th>
+                            </tr>
+                        </thead>
+                        <tbody id="drawPlayersState"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-draw-result" class="card hidden bluff-result-card">
+        <h2 style="color:var(--primary); text-align:center;">انتهت الجولة</h2>
+
+        <div id="drawRoundWordReveal" class="phase-info" style="font-size:18px;"></div>
+
+        <h3>الترتيب</h3>
+        <div class="table-wrapper">
+            <table class="bluff-table">
+                <thead>
+                    <tr>
+                        <th>الترتيب</th>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                        <th>زيادة هذه الجولة</th>
+                    </tr>
+                </thead>
+                <tbody id="drawRankingTableBody"></tbody>
+            </table>
+        </div>
+
+        <div id="drawAdvanceArea" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="screen-draw-game-over" class="card hidden">
+        <h2 style="color:var(--primary)">انتهت اللعبة!</h2>
+        <div id="drawFinalMsg" style="font-size:20px; margin:20px; font-weight:bold;"></div>
+
+        <div class="table-wrapper" style="margin-bottom:20px;">
+            <table class="bluff-table draw-players-table">
+                <thead>
+                    <tr>
+                        <th>الترتيب</th>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                    </tr>
+                </thead>
+                <tbody id="drawFinalScoreboard"></tbody>
+            </table>
+        </div>
+
+        <div id="drawGameOverAdminArea" class="hidden">
+            <button class="btn btn-primary" onclick="restartDrawGame()">جولة جديدة بنفس اللاعبين 🔄</button>
+            <button class="btn" onclick="deleteDrawRoom()">حذف الغرفة 🗑️</button>
+        </div>
+
+        <div id="drawGameOverMemberArea" class="hidden">
+            <button class="btn" onclick="resetDrawAndExit()">خروج</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/draw_guess.js"></script>
+{% endblock %}

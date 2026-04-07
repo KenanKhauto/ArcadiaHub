@@ -136,3 +136,21 @@ def bluff_page(
             "theme_class": game.get("theme_class", ""),
         },
     )
+
+@router.get("/games/draw-guess")
+def draw_guess_page(
+    request: Request,
+    current_user: User | None = Depends(get_current_user_optional),
+):
+    """Render the Draw & Guess game page."""
+    game = next((game for game in GAMES if game["path"] == "/games/draw-guess"), {})
+
+    return templates.TemplateResponse(
+        request,
+        "draw_guess.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "theme_class": game.get("theme_class", ""),
+        },
+    )

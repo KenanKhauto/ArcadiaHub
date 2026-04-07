@@ -1,0 +1,1288 @@
+let currentDrawRoomCode = localStorage.getItem("draw_room_code") || null;
+let currentDrawPlayerId = localStorage.getItem("draw_player_id") || null;
+let currentDrawPlayerName = localStorage.getItem("draw_player_name") || null;
+
+let currentDrawRoomData = null;
+let drawIsHost = false;
+let lastRenderedDrawSignature = null;
+
+let selectedDrawPlayerCount = null;
+let selectedDrawRounds = null;
+let selectedDrawCategories = [];
+let selectedDrawLanguage = "en";
+let selectedDrawTimer = 60;
+let selectedDrawCharacter = localStorage.getItem("draw_character_id") || "char1";
+let drawWS = null;
+let drawCanvas = null;
+let drawCtx = null;
+let drawIsDrawing = false;
+let drawLastX = 0;
+let drawLastY = 0;
+
+const MAX_DRAW_CATEGORIES = 12;
+const drawPlayerCountOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+const drawRoundsOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+const drawTimerOptions = [
+    { value: 30, label: "30 ثانية" },
+    { value: 60, label: "60 ثانية" },
+    { value: 90, label: "90 ثانية" },
+];
+const drawLanguageOptions = [
+    { value: "en", label: "English" },
+    { value: "ar", label: "العربية" },
+];
+const drawCharacterOptions = Array.from({ length: 12 }, (_, i) => `char${i + 1}`);
+
+const drawCategoryLabels = {
+    animals: "حيوانات",
+    objects: "أشياء",
+    football: "كرة قدم",
+};
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+    renderDrawPlayerCountButtons();
+    renderDrawRoundsButtons();
+    renderDrawLanguageButtons();
+    renderDrawTimerButtons();
+    renderDrawCharacterButtons();
+    await loadDrawCategories();
+
+    if (currentDrawPlayerName) {
+        const nameInput = document.getElementById("drawName");
+        if (nameInput) nameInput.value = currentDrawPlayerName;
+    }
+
+    if (currentDrawRoomCode) {
+        const roomInput = document.getElementById("drawRoomInput");
+        if (roomInput) roomInput.value = currentDrawRoomCode;
+    }
+
+
+    if (currentDrawRoomCode && currentDrawPlayerId) {
+        await refreshDrawRoomState();
+    }
+});
+
+
+function setupDrawCanvas() {
+    drawCanvas = document.getElementById("drawCanvas");
+    if (!drawCanvas) return;
+
+    const rect = drawCanvas.getBoundingClientRect();
+    drawCanvas.width = rect.width;
+    drawCanvas.height = rect.height;
+
+    drawCtx = drawCanvas.getContext("2d");
+    drawCtx.lineCap = "round";
+    drawCtx.lineJoin = "round";
+
+    // white background
+    drawCtx.fillStyle = "#ffffff";
+    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+    // remove old listeners by replacing node
+    const newCanvas = drawCanvas.cloneNode(true);
+    drawCanvas.parentNode.replaceChild(newCanvas, drawCanvas);
+    drawCanvas = newCanvas;
+
+    const newRect = drawCanvas.getBoundingClientRect();
+    drawCanvas.width = newRect.width;
+    drawCanvas.height = newRect.height;
+
+    drawCtx = drawCanvas.getContext("2d");
+    drawCtx.lineCap = "round";
+    drawCtx.lineJoin = "round";
+    drawCtx.fillStyle = "#ffffff";
+    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+    drawCanvas.addEventListener("mousedown", handleDrawMouseDown);
+    drawCanvas.addEventListener("mousemove", handleDrawMouseMove);
+    window.addEventListener("mouseup", handleDrawMouseUp);
+
+    drawCanvas.addEventListener("touchstart", handleDrawTouchStart, { passive: false });
+    drawCanvas.addEventListener("touchmove", handleDrawTouchMove, { passive: false });
+    drawCanvas.addEventListener("touchend", handleDrawTouchEnd, { passive: false });
+}
+
+function handleDrawMouseDown(event) {
+    if (!canCurrentPlayerDraw()) return;
+
+    drawIsDrawing = true;
+    const { x, y } = getDrawCoordinates(event);
+    drawLastX = x;
+    drawLastY = y;
+}
+
+function handleDrawMouseMove(event) {
+    if (!drawIsDrawing || !canCurrentPlayerDraw()) return;
+
+    const { x, y } = getDrawCoordinates(event);
+    const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
+
+    sendDrawWSMessage(stroke);
+    drawStroke(stroke);
+
+    drawLastX = x;
+    drawLastY = y;
+}
+
+function handleDrawMouseUp() {
+    drawIsDrawing = false;
+}
+
+function handleDrawTouchStart(event) {
+    if (!canCurrentPlayerDraw()) return;
+    event.preventDefault();
+
+    drawIsDrawing = true;
+    const touch = event.touches[0];
+    const { x, y } = getDrawCoordinates(touch);
+    drawLastX = x;
+    drawLastY = y;
+}
+
+function handleDrawTouchMove(event) {
+    if (!drawIsDrawing || !canCurrentPlayerDraw()) return;
+    event.preventDefault();
+
+    const touch = event.touches[0];
+    const { x, y } = getDrawCoordinates(touch);
+    const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
+
+    sendDrawWSMessage(stroke);
+    drawStroke(stroke);
+
+    drawLastX = x;
+    drawLastY = y;
+}
+
+function handleDrawTouchEnd(event) {
+    event.preventDefault();
+    drawIsDrawing = false;
+}
+
+function getDrawCoordinates(event) {
+    const rect = drawCanvas.getBoundingClientRect();
+
+    const scaleX = drawCanvas.width / rect.width;
+    const scaleY = drawCanvas.height / rect.height;
+
+    return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY,
+    };
+}
+
+function initCanvas() {
+    canvas = document.getElementById("drawCanvas");
+    if (!canvas) return;
+
+    ctx = canvas.getContext("2d");
+
+    resizeCanvas(canvas);
+
+    // white background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    setupDrawingEvents();
+
+    window.addEventListener("resize", () => resizeCanvas(canvas));
+}
+
+function setupDrawingEvents() {
+    canvas.addEventListener("mousedown", (e) => {
+        drawing = true;
+        const { x, y } = getCanvasCoordinates(canvas, e);
+        lastX = x;
+        lastY = y;
+    });
+
+    canvas.addEventListener("mouseup", () => {
+        drawing = false;
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+        drawing = false;
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+        if (!drawing) return;
+
+        const { x, y } = getCanvasCoordinates(canvas, e);
+
+        drawLine(lastX, lastY, x, y);
+
+        lastX = x;
+        lastY = y;
+    });
+}
+
+function drawLine(x1, y1, x2, y2) {
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // send via websocket
+    sendDrawWSMessage({
+        type: "draw",
+        player_id: currentDrawPlayerId,
+        stroke: {
+            x0: x1,
+            y0: y1,
+            x1: x2,
+            y1: y2,
+            color: "#000000",
+            width: 3
+        }
+    });
+}
+
+
+function buildStrokePayload(x0, y0, x1, y1) {
+    const color = document.getElementById("drawColorPicker")?.value || "#ffffff";
+    const width = Number(document.getElementById("drawBrushSize")?.value || 4);
+
+    return {
+        type: "draw",
+        player_id: currentDrawPlayerId,
+        x0,
+        y0,
+        x1,
+        y1,
+        color,
+        width
+    };
+}
+
+function drawStroke(stroke) {
+    if (!drawCtx) return;
+
+    drawCtx.beginPath();
+    drawCtx.moveTo(stroke.x0, stroke.y0);
+    drawCtx.lineTo(stroke.x1, stroke.y1);
+    drawCtx.strokeStyle = stroke.color;
+    drawCtx.lineWidth = stroke.width;
+    drawCtx.stroke();
+}
+
+function clearCanvasLocally() {
+    if (!drawCtx || !drawCanvas) return;
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    drawCtx.fillStyle = "#ffffff";
+    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+}
+
+function clearDrawCanvas() {
+    if (!canCurrentPlayerDraw()) return;
+    clearCanvasLocally();
+    sendDrawWSMessage({
+        type: "clear",
+        player_id: currentDrawPlayerId
+    });
+}
+
+function canCurrentPlayerDraw() {
+    return (
+        currentDrawRoomData &&
+        currentDrawRoomData.phase === "drawing" &&
+        currentDrawRoomData.current_drawer_id === currentDrawPlayerId
+    );
+}
+
+function connectDrawWS(roomCode) {
+    if (drawWS) {
+        drawWS.close();
+        drawWS = null;
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    drawWS = new WebSocket(`${protocol}://${window.location.host}/api/draw-guess/ws/${roomCode}`);
+
+    drawWS.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "draw" && data.stroke) {
+            if (data.stroke.player_id !== currentDrawPlayerId) {
+                drawStroke(data.stroke);
+            }
+        }
+
+        if (data.type === "guess") {
+            renderDrawGuessMessage(data);
+        }
+
+        if (data.type === "clear") {
+            clearCanvasLocally();
+        }
+    };
+}
+
+function sendDrawWSMessage(payload) {
+    if (!drawWS || drawWS.readyState !== WebSocket.OPEN) return;
+    drawWS.send(JSON.stringify(payload));
+}
+
+async function loadDrawCategories() {
+    const response = await fetch("/api/draw-guess/categories");
+    const data = await response.json();
+
+    const container = document.getElementById("drawCategoryGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    (data.categories || []).forEach((key) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.categoryKey = key;
+        button.textContent = drawCategoryLabels[key] || key;
+        button.onclick = () => toggleDrawCategory(key);
+        container.appendChild(button);
+    });
+
+    updateDrawCategoryButtonsState();
+}
+
+function renderDrawPlayerCountButtons() {
+    const container = document.getElementById("drawPlayerCountGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    drawPlayerCountOptions.forEach((count) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.playerCount = String(count);
+        button.textContent = `${count} لاعبين`;
+        button.onclick = () => {
+            selectedDrawPlayerCount = count;
+            if (selectedDrawRounds && selectedDrawRounds < count) {
+                selectedDrawRounds = count;
+            }
+            updateDrawPlayerCountButtonsState();
+            updateDrawRoundsButtonsState();
+        };
+        container.appendChild(button);
+    });
+
+    updateDrawPlayerCountButtonsState();
+}
+
+function updateDrawPlayerCountButtonsState() {
+    document.querySelectorAll("#drawPlayerCountGrid .category-btn").forEach((btn) => {
+        btn.classList.toggle("active", Number(btn.dataset.playerCount) === selectedDrawPlayerCount);
+    });
+}
+
+function renderDrawRoundsButtons() {
+    const container = document.getElementById("drawRoundsGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    drawRoundsOptions.forEach((rounds) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.rounds = String(rounds);
+        button.textContent = `${rounds} جولات`;
+        button.onclick = () => {
+            selectedDrawRounds = rounds;
+            updateDrawRoundsButtonsState();
+        };
+        container.appendChild(button);
+    });
+
+    updateDrawRoundsButtonsState();
+}
+
+function updateDrawRoundsButtonsState() {
+    document.querySelectorAll("#drawRoundsGrid .category-btn").forEach((btn) => {
+        const rounds = Number(btn.dataset.rounds);
+        const disabled = selectedDrawPlayerCount && rounds < selectedDrawPlayerCount;
+
+        btn.disabled = !!disabled;
+        btn.classList.toggle("disabled", !!disabled);
+        btn.classList.toggle("active", rounds === selectedDrawRounds);
+
+        if (disabled && selectedDrawRounds === rounds) {
+            selectedDrawRounds = null;
+        }
+    });
+}
+
+function renderDrawLanguageButtons() {
+    const container = document.getElementById("drawLanguageGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    drawLanguageOptions.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.languageValue = option.value;
+        button.textContent = option.label;
+        button.onclick = () => {
+            selectedDrawLanguage = option.value;
+            updateDrawLanguageButtonsState();
+        };
+        container.appendChild(button);
+    });
+
+    updateDrawLanguageButtonsState();
+}
+
+function updateDrawLanguageButtonsState() {
+    document.querySelectorAll("#drawLanguageGrid .category-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.languageValue === selectedDrawLanguage);
+    });
+}
+
+function renderDrawTimerButtons() {
+    const container = document.getElementById("drawTimerGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    drawTimerOptions.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.timerValue = String(option.value);
+        button.textContent = option.label;
+        button.onclick = () => {
+            selectedDrawTimer = option.value;
+            updateDrawTimerButtonsState();
+        };
+        container.appendChild(button);
+    });
+
+    updateDrawTimerButtonsState();
+}
+
+function updateDrawTimerButtonsState() {
+    document.querySelectorAll("#drawTimerGrid .category-btn").forEach((btn) => {
+        btn.classList.toggle("active", Number(btn.dataset.timerValue) === selectedDrawTimer);
+    });
+}
+
+function renderDrawCharacterButtons() {
+    const container = document.getElementById("drawCharacterGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    drawCharacterOptions.forEach((characterId) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "character-btn";
+        button.dataset.characterId = characterId;
+        button.onclick = () => selectDrawCharacter(characterId);
+        button.innerHTML = `<img src="/static/images/${characterId}.png" class="character-btn-img" alt="${characterId}">`;
+        container.appendChild(button);
+    });
+
+    updateDrawCharacterButtonsState();
+}
+
+function selectDrawCharacter(characterId) {
+    selectedDrawCharacter = characterId;
+    localStorage.setItem("draw_character_id", selectedDrawCharacter);
+    updateDrawCharacterButtonsState();
+}
+
+function updateDrawCharacterButtonsState() {
+    document.querySelectorAll("#drawCharacterGrid .character-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.characterId === selectedDrawCharacter);
+    });
+
+    const preview = document.getElementById("drawCharacterPreview");
+    if (preview) {
+        preview.src = `/static/images/${selectedDrawCharacter}.png`;
+    }
+}
+
+function toggleDrawCategory(categoryKey) {
+    const exists = selectedDrawCategories.includes(categoryKey);
+
+    if (exists) {
+        selectedDrawCategories = selectedDrawCategories.filter((c) => c !== categoryKey);
+    } else {
+        if (selectedDrawCategories.length >= MAX_DRAW_CATEGORIES) {
+            alert(`يمكنك اختيار ${MAX_DRAW_CATEGORIES} تصنيفات كحد أقصى`);
+            return;
+        }
+        selectedDrawCategories.push(categoryKey);
+    }
+
+    updateDrawCategoryButtonsState();
+}
+
+function updateDrawCategoryButtonsState() {
+    const info = document.getElementById("drawCategorySelectionInfo");
+    if (info) {
+        info.textContent = `تم اختيار ${selectedDrawCategories.length}`;
+    }
+
+    document.querySelectorAll("#drawCategoryGrid .category-btn").forEach((btn) => {
+        const key = btn.dataset.categoryKey;
+        btn.classList.toggle("active", selectedDrawCategories.includes(key));
+    });
+}
+
+function showDrawSetup() {
+    const name = document.getElementById("drawName").value.trim();
+    if (!name) {
+        alert("الرجاء إدخال اسمك أولاً!");
+        return;
+    }
+
+    currentDrawPlayerName = name;
+    localStorage.setItem("draw_player_name", currentDrawPlayerName);
+
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-setup").classList.remove("hidden");
+}
+
+function goBackToDrawLobby() {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-lobby").classList.remove("hidden");
+}
+
+async function createDrawRoom() {
+    const hostName = document.getElementById("drawName").value.trim();
+
+    if (!hostName) {
+        alert("الرجاء إدخال الاسم أولاً!");
+        return;
+    }
+    if (!selectedDrawPlayerCount) {
+        alert("اختر عدد اللاعبين أولاً!");
+        return;
+    }
+    if (!selectedDrawRounds) {
+        alert("اختر عدد الجولات أولاً!");
+        return;
+    }
+    if (selectedDrawRounds < selectedDrawPlayerCount) {
+        alert("عدد الجولات يجب أن يكون على الأقل بعدد اللاعبين.");
+        return;
+    }
+    if (selectedDrawCategories.length === 0) {
+        alert("اختر تصنيفاً واحداً على الأقل!");
+        return;
+    }
+
+    const response = await fetch("/api/draw-guess/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            host_name: hostName,
+            character_id: selectedDrawCharacter,
+            player_count: selectedDrawPlayerCount,
+            total_rounds: selectedDrawRounds,
+            categories: selectedDrawCategories,
+            language: selectedDrawLanguage,
+            round_timer_seconds: selectedDrawTimer
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "حدث خطأ أثناء إنشاء الغرفة.");
+        return;
+    }
+
+    currentDrawRoomCode = data.room_code;
+    currentDrawPlayerId = data.host_id;
+    currentDrawPlayerName = hostName;
+    currentDrawRoomData = data;
+    drawIsHost = true;
+    lastRenderedDrawSignature = null;
+
+    localStorage.setItem("draw_room_code", currentDrawRoomCode);
+    localStorage.setItem("draw_player_id", currentDrawPlayerId);
+    localStorage.setItem("draw_player_name", currentDrawPlayerName);
+
+    connectDrawWS(currentDrawRoomCode);
+    renderDrawWaitingRoom(data);
+}
+
+async function joinDrawRoom() {
+    const name = document.getElementById("drawName").value.trim();
+    const roomCode = document.getElementById("drawRoomInput").value.trim().toUpperCase();
+
+    if (!name || !roomCode) {
+        alert("اكمل البيانات!");
+        return;
+    }
+
+    const response = await fetch(`/api/draw-guess/rooms/${roomCode}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            player_name: name,
+            character_id: selectedDrawCharacter
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر الانضمام إلى الغرفة.");
+        return;
+    }
+
+    const joinedPlayer = data.players.find(
+        (player) => player.name === name && player.id !== data.host_id
+    ) || data.players[data.players.length - 1];
+
+    currentDrawRoomCode = roomCode;
+    currentDrawPlayerId = joinedPlayer.id;
+    currentDrawPlayerName = name;
+    currentDrawRoomData = data;
+    drawIsHost = currentDrawPlayerId === data.host_id;
+    lastRenderedDrawSignature = null;
+
+    localStorage.setItem("draw_room_code", currentDrawRoomCode);
+    localStorage.setItem("draw_player_id", currentDrawPlayerId);
+    localStorage.setItem("draw_player_name", currentDrawPlayerName);
+
+    connectDrawWS(currentDrawRoomCode);
+    renderDrawWaitingRoom(data);
+}
+
+async function startDrawGame() {
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/start`, {
+        method: "POST"
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر بدء اللعبة.");
+        return;
+    }
+
+    currentDrawRoomData = data;
+    lastRenderedDrawSignature = null;
+    renderDrawState(data);
+}
+
+async function selectDrawWord(chosenWordEn) {
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/select-word`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            player_id: currentDrawPlayerId,
+            chosen_word_en: chosenWordEn
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر اختيار الكلمة.");
+        return;
+    }
+
+    currentDrawRoomData = data;
+    lastRenderedDrawSignature = null;
+    clearCanvasLocally();
+    renderDrawState(data);
+}
+
+function handleDrawGuessEnter(event) {
+    if (event.key === "Enter") {
+        sendDrawGuess();
+    }
+}
+
+function sendDrawGuess() {
+    const input = document.getElementById("drawGuessInput");
+    if (!input) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    sendDrawWSMessage({
+        type: "guess",
+        player_id: currentDrawPlayerId,
+        text
+    });
+
+    input.value = "";
+}
+
+async function advanceDrawRound() {
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            player_id: currentDrawPlayerId
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر الانتقال للجولة التالية.");
+        return;
+    }
+
+    currentDrawRoomData = data;
+    lastRenderedDrawSignature = null;
+    clearCanvasLocally();
+    renderDrawState(data);
+}
+
+async function restartDrawGame() {
+    const categories = selectedDrawCategories.length > 0
+        ? selectedDrawCategories
+        : currentDrawRoomData?.categories || [];
+
+    const totalRounds = selectedDrawRounds || currentDrawRoomData?.total_rounds;
+    const language = selectedDrawLanguage || currentDrawRoomData?.language || "en";
+    const timer = selectedDrawTimer || currentDrawRoomData?.round_timer_seconds || 60;
+
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/restart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            categories,
+            total_rounds: totalRounds,
+            language,
+            round_timer_seconds: timer
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر إعادة اللعبة.");
+        return;
+    }
+
+    currentDrawRoomData = data;
+    lastRenderedDrawSignature = null;
+    renderDrawWaitingRoom(data);
+}
+
+async function leaveDrawRoom() {
+    const confirmed = confirm("هل أنت متأكد أنك تريد الخروج من الغرفة؟");
+    if (!confirmed) return;
+
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_id: currentDrawPlayerId })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر الخروج من الغرفة.");
+        return;
+    }
+
+    clearDrawLocalState();
+    window.location.reload();
+}
+
+async function deleteDrawRoom() {
+    const confirmed = confirm("هل أنت متأكد أنك تريد حذف الغرفة بالكامل؟");
+    if (!confirmed) return;
+
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player_id: currentDrawPlayerId })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        alert(data.detail || "تعذر حذف الغرفة.");
+        return;
+    }
+
+    clearDrawLocalState();
+    window.location.reload();
+}
+
+async function refreshDrawRoomState() {
+    if (!currentDrawRoomCode) return;
+
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}`);
+    if (!response.ok) return;
+
+    const data = await response.json();
+    currentDrawRoomData = data;
+    drawIsHost = currentDrawPlayerId === data.host_id;
+
+    if (!drawWS || drawWS.readyState !== WebSocket.OPEN) {
+        connectDrawWS(currentDrawRoomCode);
+    }
+
+    const signature = buildDrawStateSignature(data);
+
+    if (signature === lastRenderedDrawSignature) {
+        updateDrawLiveTimer(data);
+        return;
+    }
+
+    lastRenderedDrawSignature = signature;
+    renderDrawState(data);
+}
+
+function buildDrawStateSignature(data) {
+    const playersSignature = data.players
+        .map((p) => `${p.id}:${p.score}`)
+        .join("|");
+
+    const guessesSignature = (data.guesses || [])
+        .map((g) => `${g.player_id}:${g.text}:${g.is_correct}`)
+        .join("|");
+
+    return JSON.stringify({
+        started: data.started,
+        ended: data.ended,
+        phase: data.phase,
+        current_round: data.current_round,
+        current_drawer_id: data.current_drawer_id,
+        phase_deadline_at: data.phase_deadline_at,
+        guessed_correctly_player_ids: data.guessed_correctly_player_ids,
+        last_round_word_en: data.last_round_word_en,
+        last_round_word_ar: data.last_round_word_ar,
+        last_round_score_changes: data.last_round_score_changes,
+        players: playersSignature,
+        guesses: guessesSignature
+    });
+}
+
+function renderDrawState(data) {
+    currentDrawRoomData = data;
+
+    if (data.ended || data.phase === "game_over") {
+        renderDrawGameOver(data);
+        return;
+    }
+
+    if (!data.started || data.phase === "waiting") {
+        renderDrawWaitingRoom(data);
+        return;
+    }
+
+    if (data.phase === "word_choice") {
+        renderDrawWordChoice(data);
+        return;
+    }
+
+    if (data.phase === "drawing") {
+        renderDrawPlay(data);
+        return;
+    }
+
+    if (data.phase === "round_result") {
+        renderDrawRoundResult(data);
+    }
+}
+
+function buildDrawPlayerIdentity(player) {
+    return `
+        <div class="draw-player-identity">
+            <img src="/static/images/${player.character_id || 'char1'}.png" class="draw-player-avatar" alt="${escapeHtml(player.name)}">
+            <div class="draw-player-text">
+                <span class="draw-player-name">${escapeHtml(player.name)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderDrawWaitingRoom(data) {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-wait").classList.remove("hidden");
+    document.getElementById("drawDisplayCode").textContent = data.room_code;
+
+    const tbody = document.getElementById("drawPlayerList");
+    tbody.innerHTML = "";
+
+    [...data.players]
+        .sort((a, b) => b.score - a.score)
+        .forEach((player) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${buildDrawPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+    if (drawIsHost) {
+        document.getElementById("drawHostArea").classList.remove("hidden");
+        document.getElementById("drawMemberArea").classList.add("hidden");
+        document.getElementById("drawWaitMsg").classList.add("hidden");
+    } else {
+        document.getElementById("drawHostArea").classList.add("hidden");
+        document.getElementById("drawMemberArea").classList.remove("hidden");
+        document.getElementById("drawWaitMsg").classList.remove("hidden");
+    }
+}
+
+function renderDrawWordChoice(data) {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-word-choice").classList.remove("hidden");
+
+    document.getElementById("drawRoundInfoChoice").textContent =
+        `الجولة ${data.current_round} / ${data.total_rounds}`;
+
+    const drawer = data.players.find((p) => p.id === data.current_drawer_id);
+    const isDrawer = data.current_drawer_id === currentDrawPlayerId;
+
+    document.getElementById("drawDrawerInfoChoice").textContent = isDrawer
+        ? "اختر الكلمة التي تريد رسمها"
+        : `${drawer ? drawer.name : "اللاعب"} يختار الكلمة الآن`;
+
+    const box = document.getElementById("drawWordChoiceBox");
+    box.innerHTML = "";
+
+    if (isDrawer) {
+        (data.current_word_choices || []).forEach((option) => {
+            const label = data.language === "ar" ? option.word_ar : option.word_en;
+
+            const button = document.createElement("button");
+            button.className = "btn draw-word-choice-btn";
+            button.textContent = `${label} (${option.difficulty})`;
+            button.onclick = () => selectDrawWord(option.word_en);
+            box.appendChild(button);
+        });
+    } else {
+        box.innerHTML = `<p style="color:#aaa; text-align:center;">بانتظار اختيار الكلمة...</p>`;
+    }
+
+    renderDrawScoreboard(data.players, "drawScoreboardChoice");
+}
+
+function renderDrawPlay(data) {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-play").classList.remove("hidden");
+
+    document.getElementById("drawRoundInfoPlay").textContent =
+        `الجولة ${data.current_round} / ${data.total_rounds}`;
+
+    renderDrawTimer("drawTimerPlay", data.phase_deadline_at);
+
+    const drawer = data.players.find((p) => p.id === data.current_drawer_id);
+    const isDrawer = data.current_drawer_id === currentDrawPlayerId;
+
+    document.getElementById("drawTopStatus").textContent = isDrawer
+        ? "أنت الرسّام في هذه الجولة"
+        : `${drawer ? drawer.name : "اللاعب"} يرسم الآن`;
+
+    const hintEl = document.getElementById("drawWordHint");
+    if (isDrawer) {
+        const word = data.language === "ar"
+            ? getSelectedDisplayedWord(data, "ar")
+            : getSelectedDisplayedWord(data, "en");
+        hintEl.textContent = word || "اخترت كلمة";
+    } else {
+        hintEl.textContent = buildHiddenWordHint(data);
+    }
+
+    document.getElementById("drawToolsBar").classList.toggle("hidden", !isDrawer);
+    document.getElementById("drawGuessInputArea").classList.toggle("hidden", isDrawer);
+
+    renderDrawPlayersState(data);
+
+    const feed = document.getElementById("drawGuessFeed");
+    feed.innerHTML = "";
+    (data.guesses || []).forEach((guess) => {
+        renderDrawGuessMessage(guess, true);
+    });
+    setTimeout(() => {
+        setupDrawCanvas();
+    }, 0);
+}
+
+function renderDrawPlayersState(data) {
+    const tbody = document.getElementById("drawPlayersState");
+    tbody.innerHTML = "";
+
+    const guessedSet = new Set(data.guessed_correctly_player_ids || []);
+
+    data.players.forEach((player) => {
+        const isDrawer = player.id === data.current_drawer_id;
+        const guessedCorrectly = guessedSet.has(player.id);
+
+        let statusText = "بانتظار التخمين";
+        let rowClass = "";
+
+        if (isDrawer) {
+            statusText = "يرسم الآن";
+            rowClass = "draw-player-current-row";
+        } else if (guessedCorrectly) {
+            statusText = "خمن بشكل صحيح ✅";
+            rowClass = "draw-player-done-row";
+        }
+
+        const row = document.createElement("tr");
+        row.className = rowClass;
+        row.innerHTML = `
+            <td>${buildDrawPlayerIdentity(player)}</td>
+            <td>${statusText}</td>
+            <td>${player.score}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function renderDrawGuessMessage(data, isInitial = false) {
+    const container = document.getElementById("drawGuessFeed");
+    if (!container) return;
+
+    const div = document.createElement("div");
+    div.className = "draw-guess-message";
+
+    if (data.is_correct) {
+        div.classList.add("correct");
+        div.textContent = `${data.player_name} guessed correctly! ✅`;
+    } else {
+        div.textContent = `${data.player_name}: ${data.text}`;
+    }
+
+    container.appendChild(div);
+
+    if (!isInitial) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function renderDrawRoundResult(data) {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-result").classList.remove("hidden");
+
+    const revealedWord = data.language === "ar"
+        ? (data.last_round_word_ar || data.last_round_word_en || "-")
+        : (data.last_round_word_en || data.last_round_word_ar || "-");
+
+    document.getElementById("drawRoundWordReveal").textContent =
+        `الكلمة كانت: ${revealedWord}`;
+
+    renderDrawRankingResultTable(data);
+
+    const advanceArea = document.getElementById("drawAdvanceArea");
+    advanceArea.innerHTML = "";
+
+    if (drawIsHost) {
+        const nextButton = document.createElement("button");
+        nextButton.className = "btn btn-primary";
+        nextButton.textContent = data.current_round >= data.total_rounds
+            ? "إنهاء اللعبة"
+            : "الجولة التالية";
+        nextButton.onclick = advanceDrawRound;
+        advanceArea.appendChild(nextButton);
+    } else {
+        const waitText = document.createElement("p");
+        waitText.textContent = "بانتظار صاحب الغرفة للانتقال...";
+        advanceArea.appendChild(waitText);
+    }
+}
+
+function renderDrawRankingResultTable(data) {
+    const tbody = document.getElementById("drawRankingTableBody");
+    tbody.innerHTML = "";
+
+    const changes = data.last_round_score_changes || {};
+    const sortedPlayers = [...data.players].sort((a, b) => b.score - a.score);
+
+    sortedPlayers.forEach((player, index) => {
+        const delta = changes[player.id] || 0;
+        const row = document.createElement("tr");
+
+        if (index === 0) row.classList.add("rank-gold");
+        if (index === 1) row.classList.add("rank-silver");
+        if (index === 2) row.classList.add("rank-bronze");
+
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${buildDrawPlayerIdentity(player)}</td>
+            <td>${player.score}</td>
+            <td>${delta > 0 ? `+${delta}` : "-"}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function renderDrawGameOver(data) {
+    hideAllDrawScreens();
+    document.getElementById("screen-draw-game-over").classList.remove("hidden");
+
+    const winners = data.players.filter((player) => data.winner_ids.includes(player.id));
+    const winnerNames = winners.map((player) => player.name).join(" / ");
+
+    document.getElementById("drawFinalMsg").textContent =
+        winners.length > 1
+            ? `انتهت اللعبة! تعادل بين: ${winnerNames}`
+            : `الفائز هو: ${winnerNames}`;
+
+    const tbody = document.getElementById("drawFinalScoreboard");
+    tbody.innerHTML = "";
+
+    [...data.players]
+        .sort((a, b) => b.score - a.score)
+        .forEach((player, index) => {
+            const row = document.createElement("tr");
+
+            if (index === 0) row.classList.add("rank-gold");
+            if (index === 1) row.classList.add("rank-silver");
+            if (index === 2) row.classList.add("rank-bronze");
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${buildDrawPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+    if (drawIsHost) {
+        document.getElementById("drawGameOverAdminArea").classList.remove("hidden");
+        document.getElementById("drawGameOverMemberArea").classList.add("hidden");
+    } else {
+        document.getElementById("drawGameOverAdminArea").classList.add("hidden");
+        document.getElementById("drawGameOverMemberArea").classList.remove("hidden");
+    }
+}
+
+function renderDrawScoreboard(players, containerId) {
+    const tbody = document.getElementById(containerId);
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    [...players]
+        .sort((a, b) => b.score - a.score)
+        .forEach((player) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${buildDrawPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+            tbody.appendChild(row);
+        });
+}
+
+function getSelectedDisplayedWord(data, language) {
+    if (language === "ar") return data.current_word_ar || null;
+    return data.current_word_en || null;
+}
+
+function buildHiddenWordHint(data) {
+    const choices = data.current_word_choices || [];
+    if (!choices.length) return "؟ ؟ ؟";
+
+    const first = data.language === "ar" ? choices[0].word_ar : choices[0].word_en;
+    if (!first) return "؟ ؟ ؟";
+
+    return first.split("").map(() => "_").join(" ");
+}
+
+function renderDrawTimer(elementId, deadlineAt) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    if (!deadlineAt) {
+        el.textContent = "";
+        return;
+    }
+
+    const now = Date.now() / 1000;
+    const secondsLeft = Math.max(0, Math.ceil(deadlineAt - now));
+    el.textContent = `${secondsLeft} ثانية`;
+}
+
+function updateDrawLiveTimer(data) {
+    if (!data) return;
+    if (data.phase === "drawing") {
+        renderDrawTimer("drawTimerPlay", data.phase_deadline_at);
+    }
+}
+
+function hideAllDrawScreens() {
+    const screens = [
+        "screen-draw-lobby",
+        "screen-draw-setup",
+        "screen-draw-wait",
+        "screen-draw-word-choice",
+        "screen-draw-play",
+        "screen-draw-result",
+        "screen-draw-game-over"
+    ];
+
+    screens.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add("hidden");
+    });
+}
+
+function clearDrawLocalState() {
+    localStorage.removeItem("draw_room_code");
+    localStorage.removeItem("draw_player_id");
+    localStorage.removeItem("draw_player_name");
+    localStorage.removeItem("draw_character_id");
+
+    currentDrawRoomCode = null;
+    currentDrawPlayerId = null;
+    currentDrawPlayerName = null;
+    currentDrawRoomData = null;
+    drawIsHost = false;
+    lastRenderedDrawSignature = null;
+    selectedDrawPlayerCount = null;
+    selectedDrawRounds = null;
+    selectedDrawCategories = [];
+    selectedDrawLanguage = "en";
+    selectedDrawTimer = 60;
+    selectedDrawCharacter = "char1";
+
+    if (drawWS) {
+        drawWS.close();
+        drawWS = null;
+    }
+}
+
+function resetDrawAndExit() {
+    clearDrawLocalState();
+    window.location.reload();
+}
+
+setInterval(async () => {
+    if (currentDrawRoomCode && currentDrawPlayerId) {
+        await refreshDrawRoomState();
+    }
+}, 3000);
+
+setInterval(() => {
+    if (currentDrawRoomData) {
+        updateDrawLiveTimer(currentDrawRoomData);
+    }
+}, 1000);

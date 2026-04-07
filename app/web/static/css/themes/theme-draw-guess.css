@@ -1,0 +1,4 @@
+.theme-draw-guess {
+    --primary: #ffb347; /* warm gold/orange */
+    --glow: 0 0 15px rgba(255, 179, 71, 0.4);
+}
