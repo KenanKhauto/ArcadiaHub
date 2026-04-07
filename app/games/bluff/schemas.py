@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class BluffCreateRoomRequest(BaseModel):
     host_name: str
+    character_id: str = "char1"
     player_count: int = Field(..., ge=2, le=10)
     total_rounds: int = Field(..., ge=1, le=20)
     categories: List[str]
@@ -16,7 +17,7 @@ class BluffCreateRoomRequest(BaseModel):
 
 class BluffJoinRoomRequest(BaseModel):
     player_name: str
-
+    character_id: str = "char1"
 
 class BluffSelectCategoryRequest(BaseModel):
     player_id: str
@@ -54,6 +55,7 @@ class BluffPlayerView(BaseModel):
     id: str
     name: str
     score: int
+    character_id: str = "char1"
 
 
 class BluffAnswerOptionView(BaseModel):

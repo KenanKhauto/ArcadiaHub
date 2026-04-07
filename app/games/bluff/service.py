@@ -29,6 +29,7 @@ class BluffGameService:
     def create_room(
         self,
         host_name: str,
+        character_id:str,
         player_count: int,
         total_rounds: int,
         categories: list[str],
@@ -49,13 +50,13 @@ class BluffGameService:
             total_rounds=total_rounds,
         )
 
-        room.players[host_id] = BluffPlayer(id=host_id, name=host_name)
+        room.players[host_id] = BluffPlayer(id=host_id, name=host_name, character_id=character_id)
         room.scores[host_id] = 0
 
         self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
 
-    def join_room(self, room_code: str, player_name: str) -> BluffRoom:
+    def join_room(self, room_code: str, player_name: str, character_id: str) -> BluffRoom:
         room = self._get_room(room_code)
 
         if room.started:
@@ -65,7 +66,7 @@ class BluffGameService:
             raise ValueError("Room is full.")
 
         player_id = str(uuid.uuid4())
-        room.players[player_id] = BluffPlayer(id=player_id, name=player_name)
+        room.players[player_id] = BluffPlayer(id=player_id, name=player_name, character_id=character_id)
         room.scores[player_id] = 0
 
         self._save_room(room)
@@ -501,6 +502,7 @@ class BluffGameService:
                 player_id: {
                     "id": player.id,
                     "name": player.name,
+                    "character_id": player.character_id,
                 }
                 for player_id, player in room.players.items()
             },
@@ -548,6 +550,7 @@ class BluffGameService:
             room.players[player_id] = BluffPlayer(
                 id=player_data["id"],
                 name=player_data["name"],
+                character_id=player_data.get("character_id", "char1")
             )
 
         for option_data in data.get("answer_options", []):

@@ -14,6 +14,11 @@
         <div style="display: flex; margin:10px; color:#666; justify-content: center;">أو انضمام للغرفة</div>
         <input type="text" id="bluffRoomInput" placeholder="كود الغرفة">
         <button class="btn" onclick="joinBluffRoom()">انضمام للغرفة</button>
+        <label>اختر الشخصية:</label>
+        <div class="bluff-character-picker">
+            <img id="bluffCharacterPreview" class="bluff-character-preview" src="/static/images/char1.png" alt="selected character">
+            <div id="bluffCharacterGrid" class="bluff-character-grid"></div>
+        </div>
     </div>
 
     <div id="screen-bluff-setup" class="card hidden">
@@ -36,7 +41,17 @@
     <div id="screen-bluff-wait" class="card hidden">
         <h3>كود الغرفة: <span id="bluffDisplayCode" style="color:var(--primary)"></span></h3>
 
-        <div id="bluffPlayerList" class="player-chip-list"></div>
+        <div class="table-wrapper">
+            <table class="bluff-table bluff-players-table">
+                <thead>
+                    <tr>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                    </tr>
+                </thead>
+                <tbody id="bluffPlayerList"></tbody>
+            </table>
+        </div>
 
         <div id="bluffHostArea" class="hidden">
             <button class="btn btn-primary" onclick="startBluffGame()">ابدأ اللعبة الآن 🔥</button>
@@ -57,10 +72,30 @@
             <div id="bluffRoundCategoryGrid" class="category-grid"></div>
 
             <h3>اللاعبون</h3>
-            <div id="bluffPlayerStatusCategoryPick" class="player-status-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffPlayerStatusCategoryPick"></tbody>
+                </table>
+            </div>
 
             <h3 style="margin-top:20px;">الترتيب الحالي</h3>
-            <div id="bluffScoreboardCategoryPick" class="player-chip-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>النقاط</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffScoreboardCategoryPick"></tbody>
+                </table>
+            </div>
         </div>
 
         <div id="screen-bluff-submission" class="card hidden">
@@ -76,10 +111,30 @@
             <button id="bluffSubmitAnswerBtn" class="btn btn-primary" onclick="submitBluffAnswer()">إرسال الإجابة</button>
 
             <h3>اللاعبون</h3>
-            <div id="bluffPlayerStatusSubmission" class="player-status-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffPlayerStatusSubmission"></tbody>
+                </table>
+            </div>
 
             <h3 style="margin-top:20px;">الترتيب الحالي</h3>
-            <div id="bluffScoreboardSubmission" class="player-chip-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>النقاط</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffScoreboardSubmission"></tbody>
+                </table>
+            </div>
         </div>
 
         <div id="screen-bluff-answer-pick" class="card hidden">
@@ -95,10 +150,30 @@
             <div id="bluffOptionsContainer" class="bluff-answer-grid"></div>
 
             <h3>اللاعبون</h3>
-            <div id="bluffPlayerStatusAnswerPick" class="player-status-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffPlayerStatusAnswerPick"></tbody>
+                </table>
+            </div>
 
             <h3 style="margin-top:20px;">الترتيب الحالي</h3>
-            <div id="bluffScoreboardAnswerPick" class="player-chip-list"></div>
+            <div class="table-wrapper">
+                <table class="bluff-table bluff-players-table">
+                    <thead>
+                        <tr>
+                            <th>اللاعب</th>
+                            <th>النقاط</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bluffScoreboardAnswerPick"></tbody>
+                </table>
+            </div>
         </div>
 
         <div id="screen-bluff-result" class="card hidden bluff-result-card">
@@ -142,7 +217,18 @@
         <h2 style="color:var(--primary)">انتهت اللعبة!</h2>
         <div id="bluffFinalMsg" style="font-size:20px; margin:20px; font-weight:bold;"></div>
 
-        <div id="bluffScoreboardFinal" class="player-chip-list" style="margin-bottom:20px;"></div>
+        <div class="table-wrapper" style="margin-bottom:20px;">
+            <table class="bluff-table bluff-players-table">
+                <thead>
+                    <tr>
+                        <th>الترتيب</th>
+                        <th>اللاعب</th>
+                        <th>النقاط</th>
+                    </tr>
+                </thead>
+                <tbody id="bluffScoreboardFinal"></tbody>
+            </table>
+        </div>
 
         <div id="bluffGameOverAdminArea" class="hidden">
             <button class="btn btn-primary" onclick="restartBluffGame()">جولة جديدة بنفس اللاعبين 🔄</button>

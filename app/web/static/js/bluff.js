@@ -25,6 +25,9 @@ let selectedBluffRounds = null;
 let selectedBluffCategories = [];
 const MAX_CATEGORIES = 12;
 
+let selectedBluffCharacter = localStorage.getItem("bluff_character_id") || "char1";
+const bluffCharacterOptions = Array.from({ length: 12 }, (_, i) => `char${i + 1}`);
+
 const bluffPlayerCountOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 const bluffRoundsOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -45,6 +48,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderBluffPlayerCountButtons();
     renderBluffRoundsButtons();
     await loadBluffCategories();
+    renderBluffCharacterButtons();
 
     if (currentBluffPlayerName) {
         const nameInput = document.getElementById("bluffName");
@@ -60,6 +64,82 @@ document.addEventListener("DOMContentLoaded", async () => {
         await refreshBluffRoomState();
     }
 });
+
+function renderBluffCharacterButtons() {
+    const container = document.getElementById("bluffCharacterGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    bluffCharacterOptions.forEach((characterId) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "character-btn";
+        button.dataset.characterId = characterId;
+        button.onclick = () => selectBluffCharacter(characterId);
+
+        button.innerHTML = `
+            <img src="/static/images/${characterId}.png" class="character-btn-img" alt="${characterId}">
+        `;
+
+        container.appendChild(button);
+    });
+
+    updateBluffCharacterButtonsState();
+}
+
+function selectBluffCharacter(characterId) {
+    selectedBluffCharacter = characterId;
+    localStorage.setItem("bluff_character_id", selectedBluffCharacter);
+    updateBluffCharacterButtonsState();
+}
+
+function updateBluffCharacterButtonsState() {
+    const buttons = document.querySelectorAll("#bluffCharacterGrid .character-btn");
+
+    buttons.forEach((btn) => {
+        const characterId = btn.dataset.characterId;
+        btn.classList.toggle("active", characterId === selectedBluffCharacter);
+    });
+
+    const preview = document.getElementById("bluffCharacterPreview");
+    if (preview) {
+        preview.src = `/static/images/${selectedBluffCharacter}.png`;
+    }
+}
+
+function buildBluffPlayerIdentity(player) {
+    return `
+        <div class="bluff-player-identity">
+            <img src="/static/images/${player.character_id || 'char1'}.png" class="bluff-player-avatar" alt="${escapeHtml(player.name)}">
+            <div class="bluff-player-text">
+                <span class="bluff-player-name">${escapeHtml(player.name)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function getBluffPlayerStatusText(player, data, mode) {
+    const submittedIds = new Set(data.submitted_player_ids || []);
+    const pickedIds = new Set(data.picked_player_ids || []);
+
+    if (mode === "category_pick") {
+        if (player.id === data.current_category_chooser_id) {
+            return "يختار التصنيف الآن";
+        }
+        return "بانتظار الدور";
+    }
+
+    if (mode === "submission") {
+        return submittedIds.has(player.id) ? "أرسل الإجابة" : "لم يرسل بعد";
+    }
+
+    if (mode === "answer_pick") {
+        return pickedIds.has(player.id) ? "اختار إجابة" : "لم يختر بعد";
+    }
+
+    return "-";
+}
 
 async function loadBluffCategories() {
     const response = await fetch("/api/bluff/categories");
@@ -251,6 +331,7 @@ async function createBluffRoom() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             host_name: hostName,
+            character_id: selectedBluffCharacter,
             player_count: playerCount,
             total_rounds: totalRounds,
             categories: selectedBluffCategories
@@ -290,7 +371,10 @@ async function joinBluffRoom() {
     const response = await fetch(`/api/bluff/rooms/${roomCode}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player_name: name })
+        body: JSON.stringify({ 
+            player_name: name,
+            character_id: selectedBluffCharacter, 
+        })
     });
 
     const data = await response.json();
@@ -621,12 +705,16 @@ function renderBluffWaitingRoom(data) {
     const playerList = document.getElementById("bluffPlayerList");
     playerList.innerHTML = "";
 
-    data.players.forEach((player) => {
-        const badge = document.createElement("span");
-        badge.className = "player-chip";
-        badge.textContent = `${player.name} (${player.score})`;
-        playerList.appendChild(badge);
-    });
+    [...data.players]
+        .sort((a, b) => b.score - a.score)
+        .forEach((player) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${buildBluffPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+            playerList.appendChild(row);
+        });
 
     const hostArea = document.getElementById("bluffHostArea");
     const memberArea = document.getElementById("bluffMemberArea");
@@ -668,7 +756,7 @@ function renderBluffCategoryPickPhase(data) {
         container.appendChild(button);
     });
 
-    renderBluffPlayerStatusList(data, "bluffPlayerStatusCategoryPick", "idle");
+    renderBluffPlayerStatusList(data, "bluffPlayerStatusCategoryPick", "category_pick");
     renderBluffScoreboard(data.players, "bluffScoreboardCategoryPick");
 }
 
@@ -701,7 +789,7 @@ function renderBluffSubmissionPhase(data) {
         answerInput.placeholder = "اكتب إجابة خادعة تبدو صحيحة...";
     }
 
-    renderBluffPlayerStatusList(data, "bluffPlayerStatusSubmission", "submitted");
+    renderBluffPlayerStatusList(data, "bluffPlayerStatusSubmission", "submission");
     renderBluffScoreboard(data.players, "bluffScoreboardSubmission");
 }
 
@@ -720,7 +808,7 @@ function renderBluffAnswerPickPhase(data) {
         `تم الاختيار من ${data.picks_count} من ${data.players.length}`;
 
     renderBluffTimer("bluffTimerAnswerPick", data.phase_deadline_at);
-    renderBluffPlayerStatusList(data, "bluffPlayerStatusAnswerPick", "picked");
+    renderBluffPlayerStatusList(data, "bluffPlayerStatusAnswerPick", "answer_pick");
 
     const optionsContainer = document.getElementById("bluffOptionsContainer");
     optionsContainer.innerHTML = "";
@@ -831,7 +919,7 @@ function renderBluffRankingResultTable(data) {
 
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td>${escapeHtml(player.name)}</td>
+            <td>${buildBluffPlayerIdentity(player, false)}</td>
             <td>${player.score}</td>
             <td>${delta > 0 ? `+${delta}` : "-"}</td>
         `;
@@ -884,20 +972,26 @@ function renderBluffPlayerStatusList(data, containerId, mode) {
     container.innerHTML = "";
 
     data.players.forEach((player) => {
-        const item = document.createElement("div");
-        item.className = "player-status-chip";
+        const row = document.createElement("tr");
 
-        let dimmed = false;
-        if (mode === "submitted") dimmed = submittedIds.has(player.id);
-        if (mode === "picked") dimmed = pickedIds.has(player.id);
-
-        if (dimmed) item.classList.add("done");
-        if (player.id === data.current_category_chooser_id && data.phase === "category_pick") {
-            item.classList.add("current-turn");
+        let rowClass = "";
+        if (mode === "submission" && submittedIds.has(player.id)) {
+            rowClass = "bluff-player-done-row";
+        }
+        if (mode === "answer_pick" && pickedIds.has(player.id)) {
+            rowClass = "bluff-player-done-row";
+        }
+        if (mode === "category_pick" && player.id === data.current_category_chooser_id) {
+            rowClass = "bluff-player-current-row";
         }
 
-        item.textContent = player.name;
-        container.appendChild(item);
+        row.className = rowClass;
+        row.innerHTML = `
+            <td>${buildBluffPlayerIdentity(player)}</td>
+            <td>${getBluffPlayerStatusText(player, data, mode)}</td>
+        `;
+
+        container.appendChild(row);
     });
 }
 
@@ -910,17 +1004,28 @@ function renderBluffScoreboard(players, containerId, withPodium = false) {
     const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
     sortedPlayers.forEach((player, index) => {
-        const badge = document.createElement("span");
-        badge.className = "player-chip";
+        const row = document.createElement("tr");
 
-        if (withPodium || containerId === "bluffScoreboardResult") {
-            if (index === 0) badge.classList.add("podium-gold");
-            if (index === 1) badge.classList.add("podium-silver");
-            if (index === 2) badge.classList.add("podium-bronze");
+        if (withPodium || containerId === "bluffScoreboardFinal") {
+            if (index === 0) row.classList.add("rank-gold");
+            if (index === 1) row.classList.add("rank-silver");
+            if (index === 2) row.classList.add("rank-bronze");
         }
 
-        badge.textContent = `${player.name}: ${player.score}`;
-        container.appendChild(badge);
+        if (containerId === "bluffScoreboardFinal") {
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${buildBluffPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+        } else {
+            row.innerHTML = `
+                <td>${buildBluffPlayerIdentity(player)}</td>
+                <td>${player.score}</td>
+            `;
+        }
+
+        container.appendChild(row);
     });
 }
 
@@ -974,6 +1079,8 @@ function clearBluffLocalState() {
     selectedBluffPlayerCount = null;
     selectedBluffRounds = null;
     selectedBluffCategories = [];
+    localStorage.removeItem("bluff_character_id");
+    selectedBluffCharacter = "char1";   
 }
 
 function hideAllBluffScreens() {

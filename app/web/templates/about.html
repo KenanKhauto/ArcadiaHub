@@ -1,19 +1,122 @@
 {% extends "base.html" %}
 
-{% block title %}حول{% endblock %}
+{% block title %}About Aurix Cube{% endblock %}
 
 {% block content %}
-<div class="card glow-border">
-    <h1 style="color:var(--primary); text-shadow: var(--glow);">حول الموقع</h1>
-    <p style="color:#aaa; line-height: 1.8;">
-        هذه المنصة تحتوي على ألعاب بسيطة وسريعة تعمل عبر المتصفح.
-        الفكرة هي توفير ألعاب اجتماعية خفيفة مثل لعبة المندس،
-        مع تصميم واضح وتجربة استخدام سهلة.
-    </p>
+<div class="{{ theme_class }}">
+    <div class="card glow-border about-card">
+        <div class="about-header">
+            <img src="/static/images/main_logo.png" class="about-logo" alt="AurixCube Logo">
+            <h1 class="about-title">حول أوريكس كيوب</h1>
+            
+        </div>
 
-    <p style="color:#aaa; line-height: 1.8;">
-        يمكن للاعبين إنشاء غرف، الانضمام إلى غرف موجودة،
-        واللعب مباشرة بدون نظام تسجيل دخول معقد.
-    </p>
+        <div class="about-section">
+            <h2 class="about-section-title">أوريكس كيوب – Aurix Cube</h2>
+            <p class="about-text">
+                <strong>أوريكس كيوب – Aurix Cube</strong> هو اسم يعبر عن مكعب قوي ومميز.
+                كلمة <strong>Aurix</strong> هي اسم حديث يوحي بالقوة والهيبة والقيادة،
+                وهي مستوحاة بشكل غير مباشر من الكلمة اللاتينية <strong>Aurum</strong> والتي تعني الذهب.
+                أما <strong>Cube</strong> فهي ترمز لشكل الشخصية.
+                بشكل عام، يمثل هذا الاسم شخصية القائد أو الملك بين المكعبات؛
+                فالمكعب الملكي الذهبي هو المكعب الأساسي والأول، ويحمل اسم
+                <strong>King Aurix</strong> الذي يقود عالماً مليئاً بالتحديات والألعاب والأسئلة
+                بطريقة ممتعة وذكية.
+            </p>
+        </div>
+
+        <div class="about-section">
+            <h2 class="about-section-title">هدف الموقع</h2>
+            <p class="about-text">
+                يهدف موقعنا <strong>أوريكس كيوب</strong> إلى إضفاء المتعة على الجمعات مع الأصدقاء والعائلة،
+                من خلال تصنيفات ممتعة وذكية ومضحكة.
+                حتى الآن، قمنا بإضافة ثلاث ألعاب ممتعة تخلق تحدياً قوياً بين اللاعبين،
+                حيث يفوز الأذكى والأكثر قدرة على الخداع.
+            </p>
+        </div>
+
+        <div class="about-section">
+            <h2 class="about-section-title">ألعابنا المتاحة</h2>
+
+            <div class="about-game-card">
+                <div class="about-game-number">1</div>
+                <div class="about-game-content">
+                    <h3 class="about-game-title">لعبة لعبتنا</h3>
+                    <p class="about-text">
+                        في هذه اللعبة، يختار مشرف الغرفة <strong>12 تصنيفاً</strong> من التصنيفات الموجودة.
+                        عند بدء الجولة، يتم توزيع الأدوار عشوائياً،
+                        ويظهر للاعب <strong>5 تصنيفات عشوائية</strong> من التي اختارها صاحب الغرفة.
+                    </p>
+                    <p class="about-text">
+                        عند اختيار التصنيف، يظهر سؤال محدد، ويُمنع منعاً باتاً كتابة الإجابة الصحيحة؛
+                        بل يجب عليك خداع الجميع عبر وضع إجابة قريبة من الصحة.
+                        بعد انتهاء الوقت، تظهر قائمة بإجابات الجميع،
+                        وعليك محاولة اختيار الإجابة الصحيحة من بين الإجابات الخاطئة
+                        التي وضعها المتسابقون.
+                    </p>
+
+                    <div class="about-points-box">
+                        <div class="about-point">• تحتسب لك <strong>نقطتان</strong> في حال اخترت الإجابة الصحيحة.</div>
+                        <div class="about-point">• تحتسب لك <strong>نقطة واحدة</strong> عن كل شخص يختار الإجابة التي وضعتها أنت للسؤال.</div>
+                        <div class="about-point">• يبقى الفوز دائماً للأذكى والأكثر دهاءً.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="about-game-card">
+                <div class="about-game-number">2</div>
+                <div class="about-game-content">
+                    <h3 class="about-game-title">لعبة المندس</h3>
+                    <p class="about-text">
+                        تعتمد هذه اللعبة على فكرة مشابهة، ولكن يجب على المشرف تحديد عدد المندسين بين اللاعبين.
+                        المندس هو الشخص الذي لا تظهر أمامه الكلمة عند بدء الجولة.
+                    </p>
+                    <p class="about-text">
+                        يستطيع جميع اللاعبين رؤية الكلمة الموحدة عند الضغط على الكلمة المغبشة،
+                        باستثناء المندس الذي ستظهر له عبارة <strong>أنت المندس</strong>.
+                    </p>
+                    <p class="about-text">
+                        عند بدء الجولة، يظهر في القائمة العلوية توجيه للاعبين
+                        (مثل: اللاعب الأول يسأل اللاعب الخامس)،
+                        ويجب أن تكون الإجابة بـ <strong>نعم</strong> أو <strong>لا</strong> فقط.
+                        ينتقل الدور بعد ذلك ليسأل الشخص الذي تمت إجابته شخصاً آخر عشوائياً.
+                    </p>
+                    <p class="about-text">
+                        يفوز اللاعبون في حال كشف المندسين، بينما يفوز المندسون إذا تم إخراج لاعبين
+                        أو أكثر من غير المندسين.
+                    </p>
+                </div>
+            </div>
+
+            <div class="about-game-card">
+                <div class="about-game-number">3</div>
+                <div class="about-game-content">
+                    <h3 class="about-game-title">لعبة من أنا</h3>
+                    <p class="about-text">
+                        فكرة اللعبة بسيطة وممتعة؛ يقوم صاحب الغرفة بإنشاء غرفة وإرسال الكود الخاص بها
+                        إلى بقية اللاعبين. يمكن للاعبين الانضمام بمجرد إدخال الكود والضغط على
+                        <strong>انضمام للغرفة</strong>.
+                    </p>
+                    <p class="about-text">
+                        في حال كان اللاعب مسجلاً للدخول في موقعنا، يتم الأمر مباشرة،
+                        أما إذا لم يسجل دخوله فيجب عليه إدخال اسمه في كل مرة ينضم فيها أو ينشئ غرفة.
+                    </p>
+                    <p class="about-text">
+                        يستطيع صاحب الغرفة تحديد عدد اللاعبين واختيار تصنيف الكلمة التي ستظهر للجميع.
+                        كل لاعب يحصل على كلمة مختلفة، ويكون لديه <strong>3 أسئلة فقط</strong>
+                        ليخمن ما هي كلمته. اللاعب الذي يصل للإجابة بأقل عدد من المحاولات هو الفائز.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="about-section about-feedback-box">
+            <h2 class="about-section-title">ملاحظاتكم واقتراحاتكم</h2>
+            <p class="about-text">
+                نرحب بجميع ملاحظاتكم واقتراحاتكم لتحسين تجربتكم!
+            </p>
+        </div>
+    </div>
 </div>
 {% endblock %}
