@@ -144,6 +144,7 @@
 
 .game-outline-bluff {
     border-color: #E6B657;
+    background: linear-gradient(180deg, rgba(230, 182, 87, 0.08), rgba(255, 255, 255, 0.04));
     box-shadow: 0 0 18px rgba(230, 182, 87, 0.18);
 }
 
@@ -153,6 +154,7 @@
 
 .game-outline-undercover {
     border-color: #00E08A;
+    background: linear-gradient(180deg, rgba(0, 224, 138, 0.08), rgba(255, 255, 255, 0.04));
     box-shadow: 0 0 18px rgba(0, 224, 138, 0.18);
 }
 
@@ -162,6 +164,7 @@
 
 .game-outline-whoami {
     border-color: #D2D52E;
+    background: linear-gradient(180deg, rgba(210, 213, 46, 0.08), rgba(255, 255, 255, 0.04));
     box-shadow: 0 0 18px rgba(210, 213, 46, 0.18);
 }
 
