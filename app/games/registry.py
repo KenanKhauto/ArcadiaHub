@@ -36,13 +36,13 @@ GAMES = [
     },
     {
         "id": "draw_guess",
-        "name": "ارسم و خمن",
+        "name": "ارسم وخمن",
         "description": "لعبة اجتماعية خفيفة تحاول فيها تخمين ما يرسم امامك.",
         "path": "/games/draw-guess",
         "coming_soon": False,
         "disabled": False,
         "outline_class": "game-outline-draw-guess",
         "theme_class": "theme-draw-guess",
-        "logo": "/static/images/who-am-i-logo.png",
+        "logo": "/static/images/draw_guess-logo.png",
     }
 ]
