@@ -11,3 +11,4 @@ itsdangerous
 psycopg[binary]
 redis
 rapidfuzz
+uvicorn[standard]
