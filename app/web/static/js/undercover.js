@@ -25,13 +25,19 @@ const playerCountOptions = [3, 4, 5, 6, 7, 8, 9, 10];
 const undercoverCountOptions = [1, 2, 3, 4];
 
 const categoryLabels = {
-    cars: "سيارات 🚗",
-    countries: "دول 🌍",
-    syrian_food: "أكلات سورية 🍲",
-    football_players: "لاعبين كره قدم ⚽",
-    football_teams: "فرق كره قدم 🏆",
-    capitals: "عواصم 🏛️",
-    syrian_series: "مسلسلات سورية 📺"
+    cars: "سيارات",
+    countries: "دول",
+    syrian_food: "أكلات سورية",
+    football_players: "لاعبين كره قدم",
+    football_teams: "فرق كره قدم",
+    capitals: "عواصم",
+    syrian_series: "مسلسلات سورية",
+    prophets: "الأنبياء",
+    syrian_characters: "شخصية من المسلسلات السورية",
+    quran_references: "سور وآيات",
+    video_games: "العاب فيديو",
+    superheroes: "مارفل و دي سي",
+    clothing_brands: "ماركات  ملابس"
 };
 
 /**
