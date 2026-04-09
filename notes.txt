@@ -1,17 +1,20 @@
-- Make the top 3 in each round glow gold, bronze, silver
-- change the sytle of the game make it schöner
-- add avatars for each players selection
-- Choose your avatar, in create, joing room.
-- mobile style anpassen
-- Arcadiahub to AurixCube everywhere
-- Login system zabet.
+- Change Arcadiahub (old name) to AurixCube everywhere if there is still.
 
 
 
---- connectio to mobile when playing in draw not working properly
---- Join while the session is active. 
---- When drawing from phone it only shows points
---- even from a pc sometimes drawing works and someimes not. 
+--- connectio to mobile when playing draw_guess not working properly
+     When drawing from phone it only shows points
+     even from a pc sometimes drawing works and someimes not. Although it works locally fine 
+     and sometimes it works when deployed, but sometimes not. I still cant figure out what was wrong. But 
+     on mobile phone it did not show drawing or guesses from those on pc. In the same session a pc player can see the 
+     guesses from other pc players and the drawing. it is a weird thing. 
+
+--- Join while the session is active. You need to be able to join to a session in all games even if the game is active. They just
+start with 0 points and coninue playing. For that we need to change the choose a number of players to a max number of players 
+so that if we choose 5 players then 3 can play too or 4.
+
+--- bluff, we want to see who submitted which answer it should be shown on the table..
 
 
---- bluff, we want to see who submitted which answer.
+--- host should be able to delete people from the session at any given point.
+

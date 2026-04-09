@@ -204,25 +204,39 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
             # DRAW EVENT
             if event_type == "draw":
-                stroke = DrawGuessStroke(
-                    x0=data["x0"],
-                    y0=data["y0"],
-                    x1=data["x1"],
-                    y1=data["y1"],
-                    color=data["color"],
-                    width=data["width"],
-                )
+                try:
+                    stroke = DrawGuessStroke(
+                        x0=float(data.get("x0", 0)),
+                        y0=float(data.get("y0", 0)),
+                        x1=float(data.get("x1", 0)),
+                        y1=float(data.get("y1", 0)),
+                        color=data.get("color", "#000000"),
+                        width=float(data.get("width", 2)),
+                    )
 
-                room = service.add_stroke(
-                    room_code=room_code,
-                    player_id=data["player_id"],
-                    stroke=stroke
-                )
+                    room = service.add_stroke(
+                        room_code=room_code,
+                        player_id=data["player_id"],
+                        stroke=stroke
+                    )
 
-                await manager.broadcast(room_code, {
-                    "type": "draw",
-                    "stroke": data
-                })
+                    # Send stroke with proper format to all players except sender
+                    await manager.broadcast(room_code, {
+                        "type": "draw",
+                        "stroke": {
+                            "x0": stroke.x0,
+                            "y0": stroke.y0,
+                            "x1": stroke.x1,
+                            "y1": stroke.y1,
+                            "color": stroke.color,
+                            "width": stroke.width,
+                            "player_id": data["player_id"]
+                        }
+                    })
+                except (ValueError, KeyError, TypeError) as e:
+                    # Skip invalid stroke data
+                    print(f"Invalid draw data received: {e}")
+                    pass
 
             # GUESS EVENT
             elif event_type == "guess":

@@ -69,32 +69,35 @@ function setupDrawCanvas() {
     drawCanvas = document.getElementById("drawCanvas");
     if (!drawCanvas) return;
 
-    const rect = drawCanvas.getBoundingClientRect();
-    drawCanvas.width = rect.width;
-    drawCanvas.height = rect.height;
-
-    drawCtx = drawCanvas.getContext("2d");
-    drawCtx.lineCap = "round";
-    drawCtx.lineJoin = "round";
-
-    // white background
-    drawCtx.fillStyle = "#ffffff";
-    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
-
     // remove old listeners by replacing node
     const newCanvas = drawCanvas.cloneNode(true);
     drawCanvas.parentNode.replaceChild(newCanvas, drawCanvas);
     drawCanvas = newCanvas;
 
-    const newRect = drawCanvas.getBoundingClientRect();
-    drawCanvas.width = newRect.width;
-    drawCanvas.height = newRect.height;
+    const rect = drawCanvas.getBoundingClientRect();
+    
+    // Account for device pixel ratio (high-DPI/Retina displays)
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set canvas internal resolution
+    drawCanvas.width = rect.width * dpr;
+    drawCanvas.height = rect.height * dpr;
+    
+    // Set canvas CSS size
+    drawCanvas.style.width = rect.width + 'px';
+    drawCanvas.style.height = rect.height + 'px';
 
     drawCtx = drawCanvas.getContext("2d");
+    
+    // Scale context to match device pixel ratio
+    drawCtx.scale(dpr, dpr);
+    
     drawCtx.lineCap = "round";
     drawCtx.lineJoin = "round";
+
+    // white background
     drawCtx.fillStyle = "#ffffff";
-    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+    drawCtx.fillRect(0, 0, rect.width, rect.height);
 
     drawCanvas.addEventListener("mousedown", handleDrawMouseDown);
     drawCanvas.addEventListener("mousemove", handleDrawMouseMove);
@@ -118,13 +121,20 @@ function handleDrawMouseMove(event) {
     if (!drawIsDrawing || !canCurrentPlayerDraw()) return;
 
     const { x, y } = getDrawCoordinates(event);
-    const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
-
-    sendDrawWSMessage(stroke);
-    drawStroke(stroke);
-
-    drawLastX = x;
-    drawLastY = y;
+    
+    // Only send if there's an actual distance moved (avoid sending identical points)
+    const distance = Math.sqrt(Math.pow(x - drawLastX, 2) + Math.pow(y - drawLastY, 2));
+    
+    if (distance > 0.5) {
+        const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
+        
+        const sent = sendDrawWSMessage(stroke);
+        if (sent) {
+            drawStroke(stroke);
+            drawLastX = x;
+            drawLastY = y;
+        }
+    }
 }
 
 function handleDrawMouseUp() {
@@ -136,8 +146,7 @@ function handleDrawTouchStart(event) {
     event.preventDefault();
 
     drawIsDrawing = true;
-    const touch = event.touches[0];
-    const { x, y } = getDrawCoordinates(touch);
+    const { x, y } = getDrawCoordinates(event);
     drawLastX = x;
     drawLastY = y;
 }
@@ -146,15 +155,21 @@ function handleDrawTouchMove(event) {
     if (!drawIsDrawing || !canCurrentPlayerDraw()) return;
     event.preventDefault();
 
-    const touch = event.touches[0];
-    const { x, y } = getDrawCoordinates(touch);
-    const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
-
-    sendDrawWSMessage(stroke);
-    drawStroke(stroke);
-
-    drawLastX = x;
-    drawLastY = y;
+    const { x, y } = getDrawCoordinates(event);
+    
+    // Only send if there's an actual distance moved (avoid sending identical points)
+    const distance = Math.sqrt(Math.pow(x - drawLastX, 2) + Math.pow(y - drawLastY, 2));
+    
+    if (distance > 0.5) {
+        const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
+        
+        const sent = sendDrawWSMessage(stroke);
+        if (sent) {
+            drawStroke(stroke);
+            drawLastX = x;
+            drawLastY = y;
+        }
+    }
 }
 
 function handleDrawTouchEnd(event) {
@@ -163,14 +178,36 @@ function handleDrawTouchEnd(event) {
 }
 
 function getDrawCoordinates(event) {
+    if (!drawCanvas) return { x: 0, y: 0 };
+    
     const rect = drawCanvas.getBoundingClientRect();
+    
+    // Get the actual canvas size used for rendering (accounting for CSS size)
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+    
+    // Get the internal canvas resolution
+    const dpr = window.devicePixelRatio || 1;
+    const internalWidth = drawCanvas.width / dpr;
+    const internalHeight = drawCanvas.height / dpr;
+    
+    // Account for any scaling
+    const scaleX = internalWidth / displayWidth;
+    const scaleY = internalHeight / displayHeight;
 
-    const scaleX = drawCanvas.width / rect.width;
-    const scaleY = drawCanvas.height / rect.height;
+    // Get client coordinates
+    let clientX = event.clientX || 0;
+    let clientY = event.clientY || 0;
+    
+    // Check if this is a touch event and get the first touch if it is
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    }
 
     return {
-        x: (event.clientX - rect.left) * scaleX,
-        y: (event.clientY - rect.top) * scaleY,
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY,
     };
 }
 
@@ -274,9 +311,13 @@ function drawStroke(stroke) {
 
 function clearCanvasLocally() {
     if (!drawCtx || !drawCanvas) return;
-    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    
+    const rect = drawCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    
+    drawCtx.clearRect(0, 0, rect.width, rect.height);
     drawCtx.fillStyle = "#ffffff";
-    drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+    drawCtx.fillRect(0, 0, rect.width, rect.height);
 }
 
 function clearDrawCanvas() {
@@ -303,45 +344,93 @@ function connectDrawWS(roomCode) {
     }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    drawWS = new WebSocket(`${protocol}://${window.location.host}/api/draw-guess/ws/${roomCode}`);
+    const wsUrl = `${protocol}://${window.location.host}/api/draw-guess/ws/${roomCode}`;
+    
+    try {
+        drawWS = new WebSocket(wsUrl);
+    } catch (error) {
+        console.error("Failed to create WebSocket:", error);
+        alert("خطأ في الاتصال. حاول مرة أخرى.");
+        return;
+    }
+
+    drawWS.onopen = () => {
+        console.log("Draw WebSocket connected");
+    };
+
+    drawWS.onerror = (error) => {
+        console.error("WebSocket error:", error);
+    };
 
     drawWS.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+        try {
+            const data = JSON.parse(event.data);
 
-        if (data.type === "draw" && data.stroke) {
-            if (data.stroke.player_id !== currentDrawPlayerId) {
-                drawStroke(data.stroke);
+            if (data.type === "draw" && data.stroke) {
+                // Only draw strokes from other players
+                if (data.stroke.player_id !== currentDrawPlayerId) {
+                    // Validate stroke data
+                    const stroke = {
+                        x0: parseFloat(data.stroke.x0) || 0,
+                        y0: parseFloat(data.stroke.y0) || 0,
+                        x1: parseFloat(data.stroke.x1) || 0,
+                        y1: parseFloat(data.stroke.y1) || 0,
+                        color: data.stroke.color || "#000000",
+                        width: parseFloat(data.stroke.width) || 2
+                    };
+                    drawStroke(stroke);
+                }
             }
-        }
 
-        if (data.type === "guess") {
-            renderDrawGuessMessage(data);
-        }
+            if (data.type === "guess") {
+                renderDrawGuessMessage(data);
+            }
 
-        if (data.type === "clear") {
-            clearCanvasLocally();
-        }
+            if (data.type === "clear") {
+                clearCanvasLocally();
+            }
 
-        if (data.type === "player_left") {
-            // Handle player left, maybe refresh room state
-            refreshDrawRoomState();
+            if (data.type === "player_left") {
+                // Handle player left, maybe refresh room state
+                refreshDrawRoomState();
+            }
+        } catch (error) {
+            console.error("Error processing WebSocket message:", error);
         }
+    };
+
+    drawWS.onclose = () => {
+        console.log("WebSocket closed");
     };
 
     // Send leave message on page unload
     window.addEventListener('beforeunload', () => {
         if (drawWS && drawWS.readyState === WebSocket.OPEN) {
-            drawWS.send(JSON.stringify({
-                type: 'leave',
-                player_id: currentDrawPlayerId
-            }));
+            try {
+                drawWS.send(JSON.stringify({
+                    type: 'leave',
+                    player_id: currentDrawPlayerId
+                }));
+            } catch (error) {
+                console.error("Error sending leave message:", error);
+            }
         }
     });
 }
 
 function sendDrawWSMessage(payload) {
-    if (!drawWS || drawWS.readyState !== WebSocket.OPEN) return;
-    drawWS.send(JSON.stringify(payload));
+    if (!drawWS || drawWS.readyState !== WebSocket.OPEN) {
+        console.warn("WebSocket not ready. readyState:", drawWS?.readyState);
+        return false;
+    }
+    
+    try {
+        drawWS.send(JSON.stringify(payload));
+        return true;
+    } catch (error) {
+        console.error("Error sending WebSocket message:", error);
+        return false;
+    }
 }
 
 async function loadDrawCategories() {
