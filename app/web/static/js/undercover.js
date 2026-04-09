@@ -37,7 +37,7 @@ const categoryLabels = {
     quran_references: "سور وآيات",
     video_games: "العاب فيديو",
     superheroes: "مارفل و دي سي",
-    clothing_brands: "ماركات  ملابس"
+    clothing_brands: "ماركات  ملابس",
 };
 
 /**
