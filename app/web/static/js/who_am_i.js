@@ -19,7 +19,17 @@ const categoryLabels = {
     countries: "دول",
     animals: "حيوانات",
     cartoon_characters: "شخصيات كرتون",
-    historical_figures: "شخصيات تاريخية"
+    football_clubs: "أندية كرة القدم",
+    vegetables_and_fruits: "خضار وفواكه",
+    cars: "سيارات",
+    syrian_food: "أكلات سورية",
+    syrian_series: "مسلسلات سورية",
+    prophets: "أنبياء",
+    syrian_characters: "شخصيات سورية",
+    quran_references: "سور وآيات قرآنية",
+    video_games: "ألعاب فيديو",
+    superheroes: "أبطال خارقين", 
+    clothing_brands: "ماركات ملابس",
 };
 
 document.addEventListener("DOMContentLoaded", async () => {

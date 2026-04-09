@@ -31,7 +31,13 @@ const categoryLabels = {
     football_players: "لاعبين كره قدم",
     football_teams: "فرق كره قدم",
     capitals: "عواصم",
-    syrian_series: "مسلسلات سورية"
+    syrian_series: "مسلسلات سورية",
+    prophets: "الأنبياء",
+    syrian_characters: "شخصية من المسلسلات السورية",
+    quran_references: "سور وآيات",
+    video_games: "العاب فيديو",
+    superheroes: "مارفل و دي سي",
+    clothing_brands: "ماركات  ملابس",
 };
 
 /**
