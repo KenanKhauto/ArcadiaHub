@@ -31,15 +31,12 @@ class BluffGameService:
         self,
         host_name: str,
         character_id:str,
-        player_count: int,
+        max_player_count: int,
         total_rounds: int,
         categories: list[str],
         round_timer_seconds: int,
     ) -> BluffRoom:
         categories = self._validate_categories(categories)
-
-        if total_rounds < player_count:
-            raise ValueError("Total rounds must be at least the number of players.")
         
         if round_timer_seconds not in {30, 60, 90}:
             raise ValueError("Round timer must be 30, 60, or 90 seconds.")
@@ -51,7 +48,7 @@ class BluffGameService:
             room_code=room_code,
             host_id=host_id,
             categories=categories,
-            player_count=player_count,
+            max_player_count=max_player_count,
             total_rounds=total_rounds,
             round_timer_seconds=round_timer_seconds,
         )
@@ -65,15 +62,20 @@ class BluffGameService:
     def join_room(self, room_code: str, player_name: str, character_id: str) -> BluffRoom:
         room = self._get_room(room_code)
 
-        if room.started:
-            raise ValueError("Game already started.")
+        if room.ended:
+            raise ValueError("Game has ended.")
 
-        if len(room.players) >= room.player_count:
+        if len(room.players) >= room.max_player_count:
             raise ValueError("Room is full.")
 
+        # Allow joining mid-game, new player starts with 0 points
         player_id = str(uuid.uuid4())
         room.players[player_id] = BluffPlayer(id=player_id, name=player_name, character_id=character_id)
         room.scores[player_id] = 0
+
+        # If game is already started, add player to chooser order so they get a turn
+        if room.started and len(room.chooser_order) > 0:
+            room.chooser_order.append(player_id)
 
         self._save_room(room)
         return room
@@ -121,11 +123,9 @@ class BluffGameService:
     def start_game(self, room_code: str) -> BluffRoom:
         room = self._get_room(room_code)
 
-        if len(room.players) != room.player_count:
-            raise ValueError("Room is not full yet.")
-
-        if room.total_rounds < len(room.players):
-            raise ValueError("Total rounds must be at least the number of players.")
+        # Require minimum 2 players, can be less than max_player_count
+        if len(room.players) < 2:
+            raise ValueError("At least 2 players are required to start the game.")
 
         room.started = True
         room.ended = False
@@ -523,7 +523,7 @@ class BluffGameService:
             "room_code": room.room_code,
             "host_id": room.host_id,
             "categories": room.categories,
-            "player_count": room.player_count,
+            "max_player_count": room.max_player_count,
             "total_rounds": room.total_rounds,
             "started": room.started,
             "ended": room.ended,
@@ -570,7 +570,7 @@ class BluffGameService:
             room_code=data["room_code"],
             host_id=data["host_id"],
             categories=data.get("categories", []),
-            player_count=data["player_count"],
+            max_player_count=data["max_player_count"],
             total_rounds=data["total_rounds"],
             started=data.get("started", False),
             ended=data.get("ended", False),

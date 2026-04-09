@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class DrawGuessCreateRoomRequest(BaseModel):
     host_name: str
     character_id: str = "char1"
-    player_count: int = Field(..., ge=2, le=10)
+    max_player_count: int = Field(..., ge=2, le=10)
     total_rounds: int = Field(..., ge=1, le=20)
     categories: List[str]
     language: str = Field("en", pattern="^(en|ar)$")
@@ -66,10 +66,19 @@ class DrawGuessGuessMessageView(BaseModel):
     is_correct: bool
 
 
+class DrawGuessStrokeView(BaseModel):
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    color: str
+    width: float
+
+
 class DrawGuessRoomStateResponse(BaseModel):
     room_code: str
     host_id: str
-    player_count: int
+    max_player_count: int
     total_rounds: int
     categories: List[str]
     language: str

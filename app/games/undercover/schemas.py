@@ -8,7 +8,7 @@ class CreateRoomRequest(BaseModel):
     """Request body for creating a room."""
 
     host_name: str = Field(..., min_length=1, max_length=50)
-    player_count: int = Field(..., ge=3, le=20)
+    max_player_count: int = Field(..., ge=3, le=20)
     undercover_count: int = Field(..., ge=1, le=4)
     categories: list[str]
 
@@ -54,7 +54,7 @@ class RoomStateResponse(BaseModel):
     room_code: str
     host_id: str
     categories: list[str]
-    player_count: int
+    max_player_count: int
     undercover_count: int
     started: bool
     ended: bool

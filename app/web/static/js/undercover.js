@@ -268,7 +268,7 @@ async function createRoom() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             host_name: hostName,
-            player_count: playerCount,
+            max_player_count: playerCount,
             undercover_count: undercoverCount,
             categories: selectedCategories
         })
@@ -347,7 +347,7 @@ async function joinRoom() {
     localStorage.setItem("undercover_player_id", currentPlayerId);
     localStorage.setItem("undercover_player_name", currentPlayerName);
 
-    renderWaitingRoom(data);
+    renderState(data);
 }
 
 /**

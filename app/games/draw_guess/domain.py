@@ -47,7 +47,7 @@ class DrawGuessWordOption:
 class DrawGuessRoom:
     room_code: str
     host_id: str
-    player_count: int
+    max_player_count: int
     total_rounds: int
     categories: List[str]
     language: str = "en"  # en | ar

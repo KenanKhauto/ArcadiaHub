@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class BluffCreateRoomRequest(BaseModel):
     host_name: str
     character_id: str = "char1"
-    player_count: int = Field(..., ge=2, le=10)
+    max_player_count: int = Field(..., ge=2, le=10)
     total_rounds: int = Field(..., ge=1, le=20)
     categories: List[str]
     round_timer_seconds: int = Field(30, ge=30, le=90)
@@ -72,7 +72,7 @@ class BluffAnswerOptionView(BaseModel):
 class BluffRoomStateResponse(BaseModel):
     room_code: str
     host_id: str
-    player_count: int
+    max_player_count: int
     total_rounds: int
     categories: List[str]
 

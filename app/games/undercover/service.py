@@ -33,7 +33,7 @@ class UndercoverGameService:
     def create_room(
         self,
         host_name: str,
-        player_count: int,
+        max_player_count: int,
         undercover_count: int,
         categories: list[str],
     ) -> UndercoverRoom:
@@ -59,7 +59,7 @@ class UndercoverGameService:
             room_code=room_code,
             host_id=host_id,
             categories=categories,
-            player_count=player_count,
+            max_player_count=max_player_count,
             undercover_count=undercover_count,
         )
         room.players[host_id] = Player(id=host_id, name=host_name)
@@ -69,18 +69,23 @@ class UndercoverGameService:
 
     def join_room(self, room_code: str, player_name: str) -> UndercoverRoom:
         """
-        Join an existing room.
+        Join an existing room. Allow joining even during active gameplay.
         """
         room = self._get_room(room_code)
 
-        if room.started:
-            raise ValueError("Game already started.")
+        if room.ended:
+            raise ValueError("Game has ended.")
 
-        if len(room.players) >= room.player_count:
+        if len(room.players) >= room.max_player_count:
             raise ValueError("Room is full.")
 
+        # Allow joining mid-game
         player_id = str(uuid.uuid4())
         room.players[player_id] = Player(id=player_id, name=player_name)
+
+        # If game is already started, add player to votes pool
+        if room.started:
+            room.votes[player_id] = []
 
         self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
@@ -149,11 +154,12 @@ class UndercoverGameService:
     def start_game(self, room_code: str) -> UndercoverRoom:
         """
         Start the game by assigning words and undercover players.
+        Require minimum 3 players, can be less than max_player_count.
         """
         room = self._get_room(room_code)
 
-        if len(room.players) != room.player_count:
-            raise ValueError("Room is not full yet.")
+        if len(room.players) < 3:
+            raise ValueError("At least 3 players are required to start the game.")
 
         words = []
         for category in room.categories:
@@ -162,7 +168,6 @@ class UndercoverGameService:
         if not words:
             raise ValueError("No words available in selected categories.")
 
-        chosen_word = random.choice(words)
         chosen_word = random.choice(words)
         player_ids = list(room.players.keys())
         undercover_ids = choose_random_players(player_ids, room.undercover_count)
@@ -433,7 +438,7 @@ class UndercoverGameService:
             "room_code": room.room_code,
             "host_id": room.host_id,
             "categories": room.categories,
-            "player_count": room.player_count,
+            "max_player_count": room.max_player_count,
             "undercover_count": room.undercover_count,
             "started": room.started,
             "ended": room.ended,
@@ -463,7 +468,7 @@ class UndercoverGameService:
             room_code=data["room_code"],
             host_id=data["host_id"],
             categories=data.get("categories", [data["category"]] if "category" in data else []),
-            player_count=data["player_count"],
+            max_player_count=data["max_player_count"],
             undercover_count=data["undercover_count"],
             started=data["started"],
             ended=data["ended"],

@@ -30,7 +30,7 @@ class DrawGuessGameService:
         self,
         host_name: str,
         character_id: str,
-        player_count: int,
+        max_player_count: int,
         total_rounds: int,
         categories: List[str],
         language: str,
@@ -40,16 +40,13 @@ class DrawGuessGameService:
         self._validate_language(language)
         self._validate_timer(round_timer_seconds)
 
-        if total_rounds < player_count:
-            raise ValueError("Total rounds must be at least the number of players.")
-
         room_code = generate_room_code()
         host_id = str(uuid.uuid4())
 
         room = DrawGuessRoom(
             room_code=room_code,
             host_id=host_id,
-            player_count=player_count,
+            max_player_count=max_player_count,
             total_rounds=total_rounds,
             categories=categories,
             language=language,
@@ -69,12 +66,14 @@ class DrawGuessGameService:
     def join_room(self, room_code: str, player_name: str, character_id: str) -> DrawGuessRoom:
         room = self._get_room(room_code)
 
-        if room.started:
-            raise ValueError("Game already started.")
+        if room.ended:
+            raise ValueError("Game has ended.")
 
-        if len(room.players) >= room.player_count:
+        # Check if room is at max capacity
+        if len(room.players) >= room.max_player_count:
             raise ValueError("Room is full.")
 
+        # Allow joining mid-game, new player starts with 0 points
         player_id = str(uuid.uuid4())
         room.players[player_id] = DrawGuessPlayer(
             id=player_id,
@@ -82,6 +81,11 @@ class DrawGuessGameService:
             character_id=character_id,
         )
         room.scores[player_id] = 0
+
+        # If game is already started and player joins mid-game, add them to drawer order if they won't get a turn too soon
+        if room.started and len(room.drawer_order) > 0:
+            # Add at a position so they get their turn eventually
+            room.drawer_order.append(player_id)
 
         self._save_room(room)
         return room
@@ -141,8 +145,9 @@ class DrawGuessGameService:
     def start_game(self, room_code: str) -> DrawGuessRoom:
         room = self._get_room(room_code)
 
-        if len(room.players) != room.player_count:
-            raise ValueError("Room is not full yet.")
+        # Require minimum 2 players to start, can be less than max_player_count
+        if len(room.players) < 2:
+            raise ValueError("At least 2 players are required to start the game.")
 
         room.started = True
         room.ended = False
@@ -280,9 +285,6 @@ class DrawGuessGameService:
         categories = self._validate_categories(categories)
         self._validate_language(language)
         self._validate_timer(round_timer_seconds)
-
-        if total_rounds < len(room.players):
-            raise ValueError("Total rounds must be at least the number of players.")
 
         room.categories = categories
         room.total_rounds = total_rounds
@@ -463,7 +465,7 @@ class DrawGuessGameService:
         return {
             "room_code": room.room_code,
             "host_id": room.host_id,
-            "player_count": room.player_count,
+            "max_player_count": room.max_player_count,
             "total_rounds": room.total_rounds,
             "categories": room.categories,
             "language": room.language,
@@ -537,7 +539,7 @@ class DrawGuessGameService:
         room = DrawGuessRoom(
             room_code=data["room_code"],
             host_id=data["host_id"],
-            player_count=data["player_count"],
+            max_player_count=data["max_player_count"],
             total_rounds=data["total_rounds"],
             categories=data.get("categories", []),
             language=data.get("language", "en"),

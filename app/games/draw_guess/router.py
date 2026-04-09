@@ -14,6 +14,7 @@ from app.games.draw_guess.schemas import (
     DrawGuessRestartGameRequest,
     DrawGuessRoomStateResponse,
     DrawGuessSelectWordRequest,
+    DrawGuessStrokeView,
     DrawGuessWordOptionView,
 )
 from app.games.draw_guess.service import DrawGuessGameService
@@ -30,7 +31,7 @@ def build_room_response(room) -> DrawGuessRoomStateResponse:
     return DrawGuessRoomStateResponse(
         room_code=room.room_code,
         host_id=room.host_id,
-        player_count=room.player_count,
+        max_player_count=room.max_player_count,
         total_rounds=room.total_rounds,
         categories=room.categories,
         language=room.language,
@@ -74,6 +75,17 @@ def build_room_response(room) -> DrawGuessRoomStateResponse:
             )
             for g in room.guesses
         ],
+        strokes=[
+            DrawGuessStrokeView(
+                x0=s.x0,
+                y0=s.y0,
+                x1=s.x1,
+                y1=s.y1,
+                color=s.color,
+                width=s.width,
+            )
+            for s in room.strokes
+        ],
     )
 
 
@@ -88,7 +100,7 @@ def create_room(payload: DrawGuessCreateRoomRequest):
         room = service.create_room(
             host_name=payload.host_name,
             character_id=payload.character_id,
-            player_count=payload.player_count,
+            max_player_count=payload.max_player_count,
             total_rounds=payload.total_rounds,
             categories=payload.categories,
             language=payload.language,

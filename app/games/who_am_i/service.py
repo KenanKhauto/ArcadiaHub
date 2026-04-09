@@ -31,7 +31,7 @@ class WhoAmIService:
         self,
         host_name: str,
         character_id:str,
-        player_count: int,
+        max_player_count: int,
         categories: list[str],
     ) -> WhoAmIRoom:
         """
@@ -54,7 +54,7 @@ class WhoAmIService:
             room_code=room_code,
             host_id=host_id,
             categories=categories,
-            player_count=player_count,
+            max_player_count=max_player_count,
         )
         room.players[host_id] = WhoAmIPlayer(id=host_id, name=host_name, character_id=character_id)
 
@@ -63,21 +63,27 @@ class WhoAmIService:
 
     def join_room(self, room_code: str, player_name: str, character_id:str) -> WhoAmIRoom:
         """
-        Join an existing room before the game starts.
+        Join an existing room. Allow joining even during active gameplay.
         """
         room = self._get_room(room_code)
 
-        if room.started:
-            raise ValueError("Game already started.")
+        if room.ended:
+            raise ValueError("Game has ended.")
 
-        if len(room.players) >= room.player_count:
+        if len(room.players) >= room.max_player_count:
             raise ValueError("Room is full.")
 
         if any(player.name == player_name for player in room.players.values()):
             raise ValueError("Player name already exists in this room.")
 
+        # Allow joining mid-game
         player_id = str(uuid.uuid4())
         room.players[player_id] = WhoAmIPlayer(id=player_id, name=player_name, character_id=character_id)
+
+        # If game is already started, add player to turn order
+        if room.started:
+            room.full_turn_order.append(player_id)
+            room.active_turn_order.append(player_id)
 
         self.room_repository.save_room(room_code, self._serialize_room(room))
         return room
@@ -141,11 +147,12 @@ class WhoAmIService:
     def start_game(self, room_code: str) -> WhoAmIRoom:
         """
         Start the game by assigning identities and entering the controlled reveal phase.
+        Require minimum 2 players, can be less than max_player_count.
         """
         room = self._get_room(room_code)
 
-        if len(room.players) != room.player_count:
-            raise ValueError("Room is not full yet.")
+        if len(room.players) < 2:
+            raise ValueError("At least 2 players are required to start the game.")
 
         identities_pool = []
         for category in room.categories:
@@ -434,7 +441,7 @@ class WhoAmIService:
             "room_code": room.room_code,
             "host_id": room.host_id,
             "categories": room.categories,
-            "player_count": room.player_count,
+            "max_player_count": room.max_player_count,
             "started": room.started,
             "ended": room.ended,
             "reveal_phase_active": room.reveal_phase_active,
@@ -467,7 +474,7 @@ class WhoAmIService:
             room_code=data["room_code"],
             host_id=data["host_id"],
             categories=data.get("categories", []),
-            player_count=data["player_count"],
+            max_player_count=data["max_player_count"],
             started=data["started"],
             ended=data["ended"],
             reveal_phase_active=data.get("reveal_phase_active", False),

@@ -29,7 +29,7 @@ def build_room_response(room) -> BluffRoomStateResponse:
         room_code=room.room_code,
         host_id=room.host_id,
         categories=room.categories,
-        player_count=room.player_count,
+        max_player_count=room.max_player_count,
         total_rounds=room.total_rounds,
         started=room.started,
         ended=room.ended,
@@ -84,7 +84,7 @@ def create_room(payload: BluffCreateRoomRequest):
     try:
         room = service.create_room(
             host_name=payload.host_name,
-            player_count=payload.player_count,
+            max_player_count=payload.max_player_count,
             total_rounds=payload.total_rounds,
             categories=payload.categories,
             character_id=payload.character_id,

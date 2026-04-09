@@ -299,10 +299,10 @@ textarea:focus {
 }
 
 .category-btn.active {
-    background: var(--game-accent);
+    background: linear-gradient(180deg, #f0d18a, #c79a4a);
     border-color: var(--game-accent);
-    color: #111;
-    box-shadow: var(--game-shadow);
+    color: #1a1208;
+    box-shadow: 0 0 12px rgba(240, 209, 138, 0.5);
     transform: scale(1.02);
 }
 

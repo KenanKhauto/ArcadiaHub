@@ -375,7 +375,7 @@ async function createBluffRoom() {
         body: JSON.stringify({
             host_name: hostName,
             character_id: selectedBluffCharacter,
-            player_count: playerCount,
+            max_player_count: playerCount,
             total_rounds: totalRounds,
             categories: selectedBluffCategories,
             round_timer_seconds: selectedBluffRoundTimer
@@ -443,7 +443,7 @@ async function joinBluffRoom() {
     localStorage.setItem("bluff_player_id", currentBluffPlayerId);
     localStorage.setItem("bluff_player_name", currentBluffPlayerName);
 
-    renderBluffWaitingRoom(data);
+    renderBluffState(data);
 }
 
 async function startBluffGame() {

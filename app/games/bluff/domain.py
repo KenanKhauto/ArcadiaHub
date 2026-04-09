@@ -29,7 +29,7 @@ class BluffAnswerOption:
 class BluffRoom:
     room_code: str
     host_id: str
-    player_count: int
+    max_player_count: int
     total_rounds: int
     categories: List[str]
     round_timer_seconds: int = 30

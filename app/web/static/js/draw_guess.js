@@ -66,12 +66,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 function setupDrawCanvas() {
-    drawCanvas = document.getElementById("drawCanvas");
-    if (!drawCanvas) return;
+    const canvasContainer = document.getElementById("drawCanvas")?.parentNode;
+    if (!canvasContainer) return;
 
-    // remove old listeners by replacing node
-    const newCanvas = drawCanvas.cloneNode(true);
-    drawCanvas.parentNode.replaceChild(newCanvas, drawCanvas);
+    // Create a new blank canvas instead of cloning to ensure it's cleared
+    const newCanvas = document.createElement("canvas");
+    newCanvas.id = "drawCanvas";
+
+    // Replace the old canvas
+    const oldCanvas = document.getElementById("drawCanvas");
+    if (oldCanvas) {
+        canvasContainer.replaceChild(newCanvas, oldCanvas);
+    } else {
+        canvasContainer.appendChild(newCanvas);
+    }
+
     drawCanvas = newCanvas;
 
     const rect = drawCanvas.getBoundingClientRect();
@@ -693,7 +702,7 @@ async function createDrawRoom() {
         body: JSON.stringify({
             host_name: hostName,
             character_id: selectedDrawCharacter,
-            player_count: selectedDrawPlayerCount,
+            max_player_count: selectedDrawPlayerCount,
             total_rounds: selectedDrawRounds,
             categories: selectedDrawCategories,
             language: selectedDrawLanguage,
@@ -764,7 +773,7 @@ async function joinDrawRoom() {
     localStorage.setItem("draw_player_name", currentDrawPlayerName);
 
     connectDrawWS(currentDrawRoomCode);
-    renderDrawWaitingRoom(data);
+    renderDrawState(data);
 }
 
 async function startDrawGame() {
@@ -971,6 +980,7 @@ function buildDrawStateSignature(data) {
 }
 
 function renderDrawState(data) {
+    const previousDrawRoomData = currentDrawRoomData;
     currentDrawRoomData = data;
 
     if (data.ended || data.phase === "game_over") {
@@ -992,7 +1002,7 @@ function renderDrawState(data) {
     }
 
     if (data.phase === "drawing") {
-        renderDrawPlay(data);
+        renderDrawPlay(data, previousDrawRoomData);
         updateDrawRoomActionButtons();
         return;
     }
@@ -1096,7 +1106,7 @@ function renderDrawWordChoice(data) {
     renderDrawScoreboard(data.players, "drawScoreboardChoice");
 }
 
-function renderDrawPlay(data) {
+function renderDrawPlay(data, previousData) {
     hideAllDrawScreens();
     document.getElementById("screen-draw-play").classList.remove("hidden");
 
@@ -1104,6 +1114,19 @@ function renderDrawPlay(data) {
         `الجولة ${data.current_round} / ${data.total_rounds}`;
 
     renderDrawTimer("drawTimerPlay", data.phase_deadline_at);
+
+    const isSameDrawingSession =
+        previousData &&
+        previousData.phase === "drawing" &&
+        previousData.current_round === data.current_round &&
+        previousData.current_drawer_id === data.current_drawer_id;
+
+    const roundChanged = !previousData || previousData.current_round !== data.current_round;
+
+    if (!isSameDrawingSession || !drawCanvas || roundChanged) {
+        setupDrawCanvas();
+        (data.strokes || []).forEach(drawStroke);
+    }
 
     const drawer = data.players.find((p) => p.id === data.current_drawer_id);
     const isDrawer = data.current_drawer_id === currentDrawPlayerId;
@@ -1132,9 +1155,6 @@ function renderDrawPlay(data) {
     (data.guesses || []).forEach((guess) => {
         renderDrawGuessMessage(guess, true);
     });
-    setTimeout(() => {
-        setupDrawCanvas();
-    }, 0);
 }
 
 function renderDrawPlayersState(data) {

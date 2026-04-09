@@ -32,7 +32,7 @@ def build_room_response(room) -> RoomStateResponse:
         room_code=room.room_code,
         host_id=room.host_id,
         categories=room.categories,
-        player_count=room.player_count,
+        max_player_count=room.max_player_count,
         undercover_count=room.undercover_count,
         started=room.started,
         ended=room.ended,
@@ -67,7 +67,7 @@ def create_room(payload: CreateRoomRequest):
     try:
         room = service.create_room(
             host_name=payload.host_name,
-            player_count=payload.player_count,
+            max_player_count=payload.max_player_count,
             undercover_count=payload.undercover_count,
             categories=payload.categories,
         )
