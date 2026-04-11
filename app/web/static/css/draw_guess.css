@@ -107,30 +107,10 @@
     flex-direction: column;
 }
 
-.draw-guess-feed {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid #2a2a2a;
-    border-radius: 12px;
-    min-height: 360px;
-    height: 100%;
-    max-height: 470px;
-    overflow-y: auto;
-    padding: 10px;
-    margin-bottom: 12px;
-}
+
 
 #drawGuessInputArea {
     margin-top: auto;
-}
-
-@media (max-width: 1100px) {
-    .draw-top-row {
-        grid-template-columns: 1fr;
-    }
-
-    .draw-canvas-wrapper {
-        height: 420px;
-    }
 }
 
 .draw-guess-feed {
@@ -166,20 +146,6 @@
 .draw-player-current-row {
     background: rgba(255, 200, 80, 0.14);
     box-shadow: inset 3px 0 0 rgba(255, 200, 80, 0.75);
-}
-
-@media (max-width: 1000px) {
-    .draw-play-layout {
-        grid-template-columns: 1fr;
-    }
-
-    .draw-play-card {
-        max-width: 100%;
-    }
-
-    #drawCanvas {
-        height: auto;
-    }
 }
 
 
@@ -265,4 +231,117 @@
     overflow: hidden;
     border: 2px solid rgba(222, 76, 57, 0.8);
     box-shadow: 0 0 16px rgba(222, 76, 57, 0.14);
+}
+
+@media (max-width: 900px) {
+    #screen-draw-play {
+        width: calc(100vw - 16px);
+        max-width: none;
+        padding: 12px;
+        margin: 8px auto;
+    }
+
+    .draw-play-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .draw-top-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        align-items: stretch;
+    }
+
+    .draw-canvas-area,
+    .draw-guess-box,
+    .draw-bottom-row {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .draw-canvas-area {
+        order: 1;
+    }
+
+    .draw-guess-box {
+        order: 2;
+    }
+
+    .draw-bottom-row {
+        order: 3;
+    }
+
+    .draw-canvas-wrapper {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        min-height: 260px;
+        max-height: 55vh;
+    }
+
+    #drawCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .draw-guess-feed {
+        min-height: 180px;
+        max-height: 220px;
+    }
+
+    .draw-word-hint {
+        font-size: 18px;
+        letter-spacing: 2px;
+    }
+
+    .draw-tools-bar {
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .draw-tools-bar input[type="color"] {
+        width: 52px;
+        min-width: 52px;
+        padding: 4px;
+    }
+
+    .draw-tools-bar select {
+        width: auto;
+        min-width: 110px;
+    }
+
+    .draw-tools-bar .btn-sm {
+        width: auto;
+    }
+}
+
+@media (max-width: 560px) {
+    #screen-draw-play {
+        width: calc(100vw - 10px);
+        padding: 10px;
+    }
+
+    .draw-canvas-wrapper {
+        aspect-ratio: 1 / 1;
+        min-height: 240px;
+        max-height: 50vh;
+    }
+
+    .draw-guess-feed {
+        min-height: 150px;
+        max-height: 180px;
+    }
+
+    .bluff-timer {
+        font-size: 20px;
+        min-width: 90px;
+        padding: 8px 12px;
+    }
+
+    .draw-word-hint {
+        font-size: 16px;
+        letter-spacing: 1px;
+    }
 }

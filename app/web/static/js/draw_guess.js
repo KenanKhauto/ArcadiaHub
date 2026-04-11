@@ -13,36 +13,86 @@ let allDrawCategories = [];
 let selectedDrawLanguage = "en";
 let selectedDrawTimer = 60;
 let selectedDrawCharacter = localStorage.getItem("draw_character_id") || "char1";
+
 let drawWS = null;
 let drawCanvas = null;
 let drawCtx = null;
 let drawIsDrawing = false;
 let drawLastX = 0;
 let drawLastY = 0;
+let drawStrokeHistory = [];
 
 const MAX_DRAW_CATEGORIES = 12;
 const drawPlayerCountOptions = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
 const drawTimerOptions = [
     { value: 30, label: "30 ثانية" },
     { value: 60, label: "60 ثانية" },
     { value: 90, label: "90 ثانية" },
 ];
+
 const drawLanguageOptions = [
     { value: "en", label: "English" },
     { value: "ar", label: "العربية" },
 ];
+
 const drawCharacterOptions = Array.from({ length: 12 }, (_, i) => `char${i + 1}`);
 
+const drawCategoryLabels = {
+    animals: "حيوانات",
+    objects: "أشياء",
+    football: "كرة قدم",
+};
+
+document.addEventListener("DOMContentLoaded", async () => {
+    renderDrawPlayerCountButtons();
+    renderDrawRoundsButtons();
+    renderDrawLanguageButtons();
+    renderDrawTimerButtons();
+    renderDrawCharacterButtons();
+    await loadDrawCategories();
+
+    if (currentDrawPlayerName) {
+        const nameInput = document.getElementById("drawName");
+        if (nameInput) nameInput.value = currentDrawPlayerName;
+    }
+
+    if (currentDrawRoomCode) {
+        const roomInput = document.getElementById("drawRoomInput");
+        if (roomInput) roomInput.value = currentDrawRoomCode;
+    }
+
+    if (currentDrawRoomCode && currentDrawPlayerId) {
+        await refreshDrawRoomState();
+    }
+
+    window.addEventListener("resize", () => {
+        if (currentDrawRoomData?.phase === "drawing" && drawCanvas) {
+            resizeDrawCanvas();
+        }
+    });
+
+    window.addEventListener("orientationchange", () => {
+        setTimeout(() => {
+            if (currentDrawRoomData?.phase === "drawing" && drawCanvas) {
+                resizeDrawCanvas();
+            }
+        }, 150);
+    });
+});
+
 function showDrawError(message) {
-    const errorDiv = document.getElementById('draw-global-error');
+    const errorDiv = document.getElementById("draw-global-error");
+    if (!errorDiv) return;
     errorDiv.textContent = message;
-    errorDiv.classList.remove('hidden');
-    errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    errorDiv.classList.remove("hidden");
+    errorDiv.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function hideDrawError() {
-    const errorDiv = document.getElementById('draw-global-error');
-    errorDiv.classList.add('hidden');
+    const errorDiv = document.getElementById("draw-global-error");
+    if (!errorDiv) return;
+    errorDiv.classList.add("hidden");
 }
 
 async function handleDrawRoomExit(message) {
@@ -71,48 +121,34 @@ function buildDrawRemoveActionCell(playerId, showActions = true) {
     return "<td></td>";
 }
 
-const drawCategoryLabels = {
-    animals: "حيوانات",
-    objects: "أشياء",
-    football: "كرة قدم",
-};
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-
-document.addEventListener("DOMContentLoaded", async () => {
-    renderDrawPlayerCountButtons();
-    renderDrawRoundsButtons();
-    renderDrawLanguageButtons();
-    renderDrawTimerButtons();
-    renderDrawCharacterButtons();
-    await loadDrawCategories();
-
-    if (currentDrawPlayerName) {
-        const nameInput = document.getElementById("drawName");
-        if (nameInput) nameInput.value = currentDrawPlayerName;
-    }
-
-    if (currentDrawRoomCode) {
-        const roomInput = document.getElementById("drawRoomInput");
-        if (roomInput) roomInput.value = currentDrawRoomCode;
-    }
-
-
-    if (currentDrawRoomCode && currentDrawPlayerId) {
-        await refreshDrawRoomState();
-    }
-});
-
+function buildDrawPlayerIdentity(player) {
+    return `
+        <div class="draw-player-identity">
+            <img src="/static/images/${player.character_id || "char1"}.png" class="draw-player-avatar" alt="${escapeHtml(player.name)}">
+            <div class="draw-player-text">
+                <span class="draw-player-name">${escapeHtml(player.name)}</span>
+            </div>
+        </div>
+    `;
+}
 
 function setupDrawCanvas() {
-    const canvasContainer = document.getElementById("drawCanvas")?.parentNode;
+    const canvasContainer = document.querySelector(".draw-canvas-wrapper");
     if (!canvasContainer) return;
 
-    // Create a new blank canvas instead of cloning to ensure it's cleared
+    const oldCanvas = document.getElementById("drawCanvas");
     const newCanvas = document.createElement("canvas");
     newCanvas.id = "drawCanvas";
 
-    // Replace the old canvas
-    const oldCanvas = document.getElementById("drawCanvas");
     if (oldCanvas) {
         canvasContainer.replaceChild(newCanvas, oldCanvas);
     } else {
@@ -120,39 +156,69 @@ function setupDrawCanvas() {
     }
 
     drawCanvas = newCanvas;
-
-    const rect = drawCanvas.getBoundingClientRect();
-    
-    // Account for device pixel ratio (high-DPI/Retina displays)
-    const dpr = window.devicePixelRatio || 1;
-    
-    // Set canvas internal resolution
-    drawCanvas.width = rect.width * dpr;
-    drawCanvas.height = rect.height * dpr;
-    
-    // Set canvas CSS size
-    drawCanvas.style.width = rect.width + 'px';
-    drawCanvas.style.height = rect.height + 'px';
-
     drawCtx = drawCanvas.getContext("2d");
-    
-    // Scale context to match device pixel ratio
-    drawCtx.scale(dpr, dpr);
-    
+
     drawCtx.lineCap = "round";
     drawCtx.lineJoin = "round";
 
-    // white background
-    drawCtx.fillStyle = "#ffffff";
-    drawCtx.fillRect(0, 0, rect.width, rect.height);
+    resizeDrawCanvas();
 
     drawCanvas.addEventListener("mousedown", handleDrawMouseDown);
     drawCanvas.addEventListener("mousemove", handleDrawMouseMove);
-    window.addEventListener("mouseup", handleDrawMouseUp);
-
     drawCanvas.addEventListener("touchstart", handleDrawTouchStart, { passive: false });
     drawCanvas.addEventListener("touchmove", handleDrawTouchMove, { passive: false });
     drawCanvas.addEventListener("touchend", handleDrawTouchEnd, { passive: false });
+
+    window.addEventListener("mouseup", handleDrawMouseUp);
+}
+
+function resizeDrawCanvas() {
+    if (!drawCanvas || !drawCtx) return;
+
+    const wrapper = drawCanvas.parentElement;
+    if (!wrapper) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const dpr = window.devicePixelRatio || 1;
+
+    drawCanvas.width = Math.floor(rect.width * dpr);
+    drawCanvas.height = Math.floor(rect.height * dpr);
+
+    drawCanvas.style.width = `${rect.width}px`;
+    drawCanvas.style.height = `${rect.height}px`;
+
+    drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+    drawCtx.scale(dpr, dpr);
+    drawCtx.lineCap = "round";
+    drawCtx.lineJoin = "round";
+
+    drawCtx.fillStyle = "#ffffff";
+    drawCtx.fillRect(0, 0, rect.width, rect.height);
+
+    for (const stroke of drawStrokeHistory) {
+        drawStroke(stroke, false);
+    }
+}
+
+function getDrawCoordinates(event) {
+    if (!drawCanvas) return { x: 0, y: 0 };
+
+    const rect = drawCanvas.getBoundingClientRect();
+
+    let clientX = event.clientX || 0;
+    let clientY = event.clientY || 0;
+
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    }
+
+    return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+    };
 }
 
 function handleDrawMouseDown(event) {
@@ -168,16 +234,14 @@ function handleDrawMouseMove(event) {
     if (!drawIsDrawing || !canCurrentPlayerDraw()) return;
 
     const { x, y } = getDrawCoordinates(event);
-    
-    // Only send if there's an actual distance moved (avoid sending identical points)
-    const distance = Math.sqrt(Math.pow(x - drawLastX, 2) + Math.pow(y - drawLastY, 2));
-    
+    const distance = Math.sqrt((x - drawLastX) ** 2 + (y - drawLastY) ** 2);
+
     if (distance > 0.5) {
         const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
-        
+
         const sent = sendDrawWSMessage(stroke);
         if (sent) {
-            drawStroke(stroke);
+            drawStroke(stroke, true);
             drawLastX = x;
             drawLastY = y;
         }
@@ -203,16 +267,14 @@ function handleDrawTouchMove(event) {
     event.preventDefault();
 
     const { x, y } = getDrawCoordinates(event);
-    
-    // Only send if there's an actual distance moved (avoid sending identical points)
-    const distance = Math.sqrt(Math.pow(x - drawLastX, 2) + Math.pow(y - drawLastY, 2));
-    
+    const distance = Math.sqrt((x - drawLastX) ** 2 + (y - drawLastY) ** 2);
+
     if (distance > 0.5) {
         const stroke = buildStrokePayload(drawLastX, drawLastY, x, y);
-        
+
         const sent = sendDrawWSMessage(stroke);
         if (sent) {
-            drawStroke(stroke);
+            drawStroke(stroke, true);
             drawLastX = x;
             drawLastY = y;
         }
@@ -224,113 +286,8 @@ function handleDrawTouchEnd(event) {
     drawIsDrawing = false;
 }
 
-function getDrawCoordinates(event) {
-    if (!drawCanvas) return { x: 0, y: 0 };
-    
-    const rect = drawCanvas.getBoundingClientRect();
-    
-    // Get the actual canvas size used for rendering (accounting for CSS size)
-    const displayWidth = rect.width;
-    const displayHeight = rect.height;
-    
-    // Get the internal canvas resolution
-    const dpr = window.devicePixelRatio || 1;
-    const internalWidth = drawCanvas.width / dpr;
-    const internalHeight = drawCanvas.height / dpr;
-    
-    // Account for any scaling
-    const scaleX = internalWidth / displayWidth;
-    const scaleY = internalHeight / displayHeight;
-
-    // Get client coordinates
-    let clientX = event.clientX || 0;
-    let clientY = event.clientY || 0;
-    
-    // Check if this is a touch event and get the first touch if it is
-    if (event.touches && event.touches.length > 0) {
-        clientX = event.touches[0].clientX;
-        clientY = event.touches[0].clientY;
-    }
-
-    return {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY,
-    };
-}
-
-function initCanvas() {
-    canvas = document.getElementById("drawCanvas");
-    if (!canvas) return;
-
-    ctx = canvas.getContext("2d");
-
-    resizeCanvas(canvas);
-
-    // white background
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    setupDrawingEvents();
-
-    window.addEventListener("resize", () => resizeCanvas(canvas));
-}
-
-function setupDrawingEvents() {
-    canvas.addEventListener("mousedown", (e) => {
-        drawing = true;
-        const { x, y } = getCanvasCoordinates(canvas, e);
-        lastX = x;
-        lastY = y;
-    });
-
-    canvas.addEventListener("mouseup", () => {
-        drawing = false;
-    });
-
-    canvas.addEventListener("mouseleave", () => {
-        drawing = false;
-    });
-
-    canvas.addEventListener("mousemove", (e) => {
-        if (!drawing) return;
-
-        const { x, y } = getCanvasCoordinates(canvas, e);
-
-        drawLine(lastX, lastY, x, y);
-
-        lastX = x;
-        lastY = y;
-    });
-}
-
-function drawLine(x1, y1, x2, y2) {
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-
-    // send via websocket
-    sendDrawWSMessage({
-        type: "draw",
-        player_id: currentDrawPlayerId,
-        stroke: {
-            x0: x1,
-            y0: y1,
-            x1: x2,
-            y1: y2,
-            color: "#000000",
-            width: 3
-        }
-    });
-}
-
-
 function buildStrokePayload(x0, y0, x1, y1) {
-    const color = document.getElementById("drawColorPicker")?.value || "#ffffff";
+    const color = document.getElementById("drawColorPicker")?.value || "#000000";
     const width = Number(document.getElementById("drawBrushSize")?.value || 4);
 
     return {
@@ -341,11 +298,11 @@ function buildStrokePayload(x0, y0, x1, y1) {
         x1,
         y1,
         color,
-        width
+        width,
     };
 }
 
-function drawStroke(stroke) {
+function drawStroke(stroke, saveToHistory = true) {
     if (!drawCtx) return;
 
     drawCtx.beginPath();
@@ -354,14 +311,18 @@ function drawStroke(stroke) {
     drawCtx.strokeStyle = stroke.color;
     drawCtx.lineWidth = stroke.width;
     drawCtx.stroke();
+
+    if (saveToHistory) {
+        drawStrokeHistory.push(stroke);
+    }
 }
 
 function clearCanvasLocally() {
     if (!drawCtx || !drawCanvas) return;
-    
+
     const rect = drawCanvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    
+    drawStrokeHistory = [];
+
     drawCtx.clearRect(0, 0, rect.width, rect.height);
     drawCtx.fillStyle = "#ffffff";
     drawCtx.fillRect(0, 0, rect.width, rect.height);
@@ -369,10 +330,11 @@ function clearCanvasLocally() {
 
 function clearDrawCanvas() {
     if (!canCurrentPlayerDraw()) return;
+
     clearCanvasLocally();
     sendDrawWSMessage({
         type: "clear",
-        player_id: currentDrawPlayerId
+        player_id: currentDrawPlayerId,
     });
 }
 
@@ -392,7 +354,7 @@ function connectDrawWS(roomCode) {
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const wsUrl = `${protocol}://${window.location.host}/api/draw-guess/ws/${roomCode}`;
-    
+
     try {
         drawWS = new WebSocket(wsUrl);
     } catch (error) {
@@ -414,18 +376,16 @@ function connectDrawWS(roomCode) {
             const data = JSON.parse(event.data);
 
             if (data.type === "draw" && data.stroke) {
-                // Only draw strokes from other players
                 if (data.stroke.player_id !== currentDrawPlayerId) {
-                    // Validate stroke data
                     const stroke = {
                         x0: parseFloat(data.stroke.x0) || 0,
                         y0: parseFloat(data.stroke.y0) || 0,
                         x1: parseFloat(data.stroke.x1) || 0,
                         y1: parseFloat(data.stroke.y1) || 0,
                         color: data.stroke.color || "#000000",
-                        width: parseFloat(data.stroke.width) || 2
+                        width: parseFloat(data.stroke.width) || 2,
                     };
-                    drawStroke(stroke);
+                    drawStroke(stroke, true);
                 }
             }
 
@@ -438,7 +398,6 @@ function connectDrawWS(roomCode) {
             }
 
             if (data.type === "player_left") {
-                // Handle player left, maybe refresh room state
                 refreshDrawRoomState();
             }
         } catch (error) {
@@ -450,13 +409,12 @@ function connectDrawWS(roomCode) {
         console.log("WebSocket closed");
     };
 
-    // Send leave message on page unload
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener("beforeunload", () => {
         if (drawWS && drawWS.readyState === WebSocket.OPEN) {
             try {
                 drawWS.send(JSON.stringify({
-                    type: 'leave',
-                    player_id: currentDrawPlayerId
+                    type: "leave",
+                    player_id: currentDrawPlayerId,
                 }));
             } catch (error) {
                 console.error("Error sending leave message:", error);
@@ -470,7 +428,7 @@ function sendDrawWSMessage(payload) {
         console.warn("WebSocket not ready. readyState:", drawWS?.readyState);
         return false;
     }
-    
+
     try {
         drawWS.send(JSON.stringify(payload));
         return true;
@@ -483,23 +441,7 @@ function sendDrawWSMessage(payload) {
 async function loadDrawCategories() {
     const response = await fetch("/api/draw-guess/categories");
     const data = await response.json();
-
-    const container = document.getElementById("drawCategoryGrid");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    (data.categories || []).forEach((key) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "category-btn";
-        button.dataset.categoryKey = key;
-        button.textContent = drawCategoryLabels[key] || key;
-        button.onclick = () => toggleDrawCategory(key);
-        container.appendChild(button);
-    });
-
-    updateDrawCategoryButtonsState();
+    allDrawCategories = data.categories || [];
 }
 
 function renderDrawPlayerCountButtons() {
@@ -677,32 +619,100 @@ function updateDrawCharacterButtonsState() {
     }
 }
 
-function toggleDrawCategory(categoryKey) {
+async function toggleDrawCategory(categoryKey) {
+    if (!drawIsHost || currentDrawRoomData?.started) {
+        return;
+    }
+
     const exists = selectedDrawCategories.includes(categoryKey);
+    let nextCategories;
 
     if (exists) {
-        selectedDrawCategories = selectedDrawCategories.filter((c) => c !== categoryKey);
+        nextCategories = selectedDrawCategories.filter((c) => c !== categoryKey);
     } else {
         if (selectedDrawCategories.length >= MAX_DRAW_CATEGORIES) {
             showDrawError(`يمكنك اختيار ${MAX_DRAW_CATEGORIES} تصنيفات كحد أقصى`);
             return;
         }
-        selectedDrawCategories.push(categoryKey);
+        nextCategories = [...selectedDrawCategories, categoryKey];
     }
 
-    updateDrawCategoryButtonsState();
+    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            host_id: currentDrawPlayerId,
+            categories: nextCategories,
+        }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        showDrawError(data.detail || "تعذر تحديث التصنيفات.");
+        return;
+    }
+
+    currentDrawRoomData = data;
+    selectedDrawCategories = [...(data.categories || [])];
+    drawIsHost = currentDrawPlayerId === data.host_id;
+    lastRenderedDrawSignature = null;
+    renderDrawWaitingRoom(data);
 }
 
 function updateDrawCategoryButtonsState() {
     const info = document.getElementById("drawCategorySelectionInfo");
+    const canEdit = drawIsHost && currentDrawRoomData && !currentDrawRoomData.started;
+
     if (info) {
-        info.textContent = `تم اختيار ${selectedDrawCategories.length}`;
+        info.textContent = `تم اختيار ${selectedDrawCategories.length} / ${MAX_DRAW_CATEGORIES}`;
     }
 
     document.querySelectorAll("#drawCategoryGrid .category-btn").forEach((btn) => {
         const key = btn.dataset.categoryKey;
-        btn.classList.toggle("active", selectedDrawCategories.includes(key));
+        const isSelected = selectedDrawCategories.includes(key);
+        btn.classList.toggle("active", isSelected);
+
+        if (!canEdit) {
+            btn.classList.add("disabled");
+            btn.disabled = true;
+            return;
+        }
+
+        if (!isSelected && selectedDrawCategories.length >= MAX_DRAW_CATEGORIES) {
+            btn.classList.add("disabled");
+            btn.disabled = true;
+        } else {
+            btn.classList.remove("disabled");
+            btn.disabled = false;
+        }
     });
+}
+
+function renderDrawPregameCategories(data) {
+    const container = document.getElementById("drawCategoryGrid");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    allDrawCategories.forEach((key) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-btn";
+        button.dataset.categoryKey = key;
+        button.textContent = drawCategoryLabels[key] || key;
+        button.onclick = () => toggleDrawCategory(key);
+        container.appendChild(button);
+    });
+
+    const info = document.getElementById("drawCategorySelectionInfo");
+    if (info && !drawIsHost) {
+        info.textContent = data.categories?.length
+            ? `المنظم يختار التصنيفات الآن: ${data.categories.length} / ${MAX_DRAW_CATEGORIES}`
+            : "المنظم لم يختر أي تصنيف بعد";
+    }
+
+    updateDrawCategoryButtonsState();
 }
 
 function showDrawSetup() {
@@ -743,10 +753,6 @@ async function createDrawRoom() {
         showDrawError("عدد الجولات يجب أن يكون على الأقل بعدد اللاعبين.");
         return;
     }
-    if (selectedDrawCategories.length === 0) {
-        showDrawError("اختر تصنيفاً واحداً على الأقل!");
-        return;
-    }
 
     const response = await fetch("/api/draw-guess/rooms", {
         method: "POST",
@@ -756,10 +762,10 @@ async function createDrawRoom() {
             character_id: selectedDrawCharacter,
             max_player_count: selectedDrawPlayerCount,
             total_rounds: selectedDrawRounds,
-            categories: selectedDrawCategories,
+            categories: [],
             language: selectedDrawLanguage,
-            round_timer_seconds: selectedDrawTimer
-        })
+            round_timer_seconds: selectedDrawTimer,
+        }),
     });
 
     const data = await response.json();
@@ -774,6 +780,7 @@ async function createDrawRoom() {
     currentDrawPlayerName = hostName;
     currentDrawRoomData = data;
     drawIsHost = true;
+    selectedDrawCategories = [...(data.categories || [])];
     lastRenderedDrawSignature = null;
 
     localStorage.setItem("draw_room_code", currentDrawRoomCode);
@@ -798,8 +805,8 @@ async function joinDrawRoom() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             player_name: name,
-            character_id: selectedDrawCharacter
-        })
+            character_id: selectedDrawCharacter,
+        }),
     });
 
     const data = await response.json();
@@ -809,9 +816,9 @@ async function joinDrawRoom() {
         return;
     }
 
-    const joinedPlayer = data.players.find(
-        (player) => player.name === name && player.id !== data.host_id
-    ) || data.players[data.players.length - 1];
+    const joinedPlayer =
+        data.players.find((player) => player.name === name && player.id !== data.host_id) ||
+        data.players[data.players.length - 1];
 
     currentDrawRoomCode = roomCode;
     currentDrawPlayerId = joinedPlayer.id;
@@ -829,8 +836,13 @@ async function joinDrawRoom() {
 }
 
 async function startDrawGame() {
+    if (!currentDrawRoomData?.categories?.length) {
+        showDrawError("اختر تصنيفًا واحدًا على الأقل قبل بدء اللعبة.");
+        return;
+    }
+
     const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/start`, {
-        method: "POST"
+        method: "POST",
     });
 
     const data = await response.json();
@@ -851,8 +863,8 @@ async function selectDrawWord(chosenWordEn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             player_id: currentDrawPlayerId,
-            chosen_word_en: chosenWordEn
-        })
+            chosen_word_en: chosenWordEn,
+        }),
     });
 
     const data = await response.json();
@@ -884,7 +896,7 @@ function sendDrawGuess() {
     sendDrawWSMessage({
         type: "guess",
         player_id: currentDrawPlayerId,
-        text
+        text,
     });
 
     input.value = "";
@@ -895,8 +907,8 @@ async function advanceDrawRound() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            player_id: currentDrawPlayerId
-        })
+            player_id: currentDrawPlayerId,
+        }),
     });
 
     const data = await response.json();
@@ -928,8 +940,8 @@ async function restartDrawGame() {
             categories,
             total_rounds: totalRounds,
             language,
-            round_timer_seconds: timer
-        })
+            round_timer_seconds: timer,
+        }),
     });
 
     const data = await response.json();
@@ -940,6 +952,7 @@ async function restartDrawGame() {
     }
 
     currentDrawRoomData = data;
+    selectedDrawCategories = [...(data.categories || [])];
     lastRenderedDrawSignature = null;
     renderDrawWaitingRoom(data);
 }
@@ -951,7 +964,7 @@ async function leaveDrawRoom() {
     const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/leave`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player_id: currentDrawPlayerId })
+        body: JSON.stringify({ player_id: currentDrawPlayerId }),
     });
 
     const data = await response.json();
@@ -977,7 +990,7 @@ async function deleteDrawRoom() {
     const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player_id: currentDrawPlayerId })
+        body: JSON.stringify({ player_id: currentDrawPlayerId }),
     });
 
     const data = await response.json();
@@ -1005,8 +1018,8 @@ async function removeDrawPlayer(playerIdToRemove) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             host_id: currentDrawPlayerId,
-            player_id_to_remove: playerIdToRemove
-        })
+            player_id_to_remove: playerIdToRemove,
+        }),
     });
 
     const data = await response.json();
@@ -1068,7 +1081,8 @@ function buildDrawStateSignature(data) {
         last_round_word_en: data.last_round_word_en,
         last_round_word_ar: data.last_round_word_ar,
         last_round_score_changes: data.last_round_score_changes,
-        players: playersSignature
+        categories: (data.categories || []).join(","),
+        players: playersSignature,
     });
 }
 
@@ -1110,34 +1124,17 @@ function updateDrawRoomActionButtons() {
     document.querySelectorAll(".draw-room-leave").forEach((button) => {
         button.classList.toggle("hidden", drawIsHost);
     });
+
     document.querySelectorAll(".draw-room-delete").forEach((button) => {
         button.classList.toggle("hidden", !drawIsHost);
     });
 }
 
-function buildDrawPlayerIdentity(player) {
-    return `
-        <div class="draw-player-identity">
-            <img src="/static/images/${player.character_id || 'char1'}.png" class="draw-player-avatar" alt="${escapeHtml(player.name)}">
-            <div class="draw-player-text">
-                <span class="draw-player-name">${escapeHtml(player.name)}</span>
-            </div>
-        </div>
-    `;
-}
-
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
 function renderDrawWaitingRoom(data) {
     hideAllDrawScreens();
     document.getElementById("screen-draw-wait").classList.remove("hidden");
+    currentDrawRoomData = data;
+    selectedDrawCategories = [...(data.categories || [])];
     document.getElementById("drawDisplayCode").textContent = data.room_code;
 
     const tbody = document.getElementById("drawPlayerList");
@@ -1154,6 +1151,8 @@ function renderDrawWaitingRoom(data) {
             `;
             tbody.appendChild(row);
         });
+
+    renderDrawPregameCategories(data);
 
     if (drawIsHost) {
         document.getElementById("drawHostArea").classList.remove("hidden");
@@ -1218,8 +1217,9 @@ function renderDrawPlay(data, previousData) {
     const roundChanged = !previousData || previousData.current_round !== data.current_round;
 
     if (!isSameDrawingSession || !drawCanvas || roundChanged) {
+        drawStrokeHistory = [];
         setupDrawCanvas();
-        (data.strokes || []).forEach(drawStroke);
+        (data.strokes || []).forEach((stroke) => drawStroke(stroke, true));
     }
 
     const drawer = data.players.find((p) => p.id === data.current_drawer_id);
@@ -1313,8 +1313,7 @@ function renderDrawRoundResult(data) {
         ? (data.last_round_word_ar || data.last_round_word_en || "-")
         : (data.last_round_word_en || data.last_round_word_ar || "-");
 
-    document.getElementById("drawRoundWordReveal").textContent =
-        `الكلمة كانت: ${revealedWord}`;
+    document.getElementById("drawRoundWordReveal").textContent = `الكلمة كانت: ${revealedWord}`;
 
     renderDrawRankingResultTable(data);
 
@@ -1324,9 +1323,7 @@ function renderDrawRoundResult(data) {
     if (drawIsHost) {
         const nextButton = document.createElement("button");
         nextButton.className = "btn btn-primary";
-        nextButton.textContent = data.current_round >= data.total_rounds
-            ? "إنهاء اللعبة"
-            : "الجولة التالية";
+        nextButton.textContent = data.current_round >= data.total_rounds ? "إنهاء اللعبة" : "الجولة التالية";
         nextButton.onclick = advanceDrawRound;
         advanceArea.appendChild(nextButton);
     } else {
@@ -1366,11 +1363,10 @@ function renderDrawGameOver(data) {
     hideAllDrawScreens();
     document.getElementById("screen-draw-game-over").classList.remove("hidden");
 
-    // Handle insufficient players
     if (data.end_reason === "insufficient_players") {
-        document.getElementById("drawFinalMsg").textContent = 
+        document.getElementById("drawFinalMsg").textContent =
             "انتهت اللعبة! عدد اللاعبين غير كافي للمتابعة.";
-        
+
         const tbody = document.getElementById("drawFinalScoreboard");
         tbody.innerHTML = "";
 
@@ -1386,7 +1382,7 @@ function renderDrawGameOver(data) {
                 `;
                 tbody.appendChild(row);
             });
-        
+
         if (drawIsHost) {
             document.getElementById("drawGameOverAdminArea").classList.remove("hidden");
             document.getElementById("drawGameOverMemberArea").classList.add("hidden");
@@ -1397,7 +1393,6 @@ function renderDrawGameOver(data) {
         return;
     }
 
-    // Normal game over
     const winners = data.players.filter((player) => data.winner_ids.includes(player.id));
     const winnerNames = winners.map((player) => player.name).join(" / ");
 
@@ -1499,282 +1494,13 @@ function hideAllDrawScreens() {
         "screen-draw-word-choice",
         "screen-draw-play",
         "screen-draw-result",
-        "screen-draw-game-over"
+        "screen-draw-game-over",
     ];
 
     screens.forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.classList.add("hidden");
     });
-}
-
-async function loadDrawCategories() {
-    const response = await fetch("/api/draw-guess/categories");
-    const data = await response.json();
-    allDrawCategories = data.categories || [];
-}
-
-async function toggleDrawCategory(categoryKey) {
-    if (!drawIsHost || currentDrawRoomData?.started) {
-        return;
-    }
-
-    const exists = selectedDrawCategories.includes(categoryKey);
-    let nextCategories;
-
-    if (exists) {
-        nextCategories = selectedDrawCategories.filter((c) => c !== categoryKey);
-    } else {
-        if (selectedDrawCategories.length >= MAX_DRAW_CATEGORIES) {
-            showDrawError(`يمكنك اختيار ${MAX_DRAW_CATEGORIES} تصنيفات كحد أقصى`);
-            return;
-        }
-        nextCategories = [...selectedDrawCategories, categoryKey];
-    }
-
-    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/categories`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            host_id: currentDrawPlayerId,
-            categories: nextCategories
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        showDrawError(data.detail || "\u062A\u0639\u0630\u0631 \u062A\u062D\u062F\u064A\u062B \u0627\u0644\u062A\u0635\u0646\u064A\u0641\u0627\u062A.");
-        return;
-    }
-
-    currentDrawRoomData = data;
-    selectedDrawCategories = [...(data.categories || [])];
-    drawIsHost = currentDrawPlayerId === data.host_id;
-    lastRenderedDrawSignature = null;
-    renderDrawWaitingRoom(data);
-}
-
-function updateDrawCategoryButtonsState() {
-    const info = document.getElementById("drawCategorySelectionInfo");
-    const canEdit = drawIsHost && currentDrawRoomData && !currentDrawRoomData.started;
-    if (info) {
-        info.textContent = `تم اختيار ${selectedDrawCategories.length} / ${MAX_DRAW_CATEGORIES}`;
-    }
-
-    document.querySelectorAll("#drawCategoryGrid .category-btn").forEach((btn) => {
-        const key = btn.dataset.categoryKey;
-        const isSelected = selectedDrawCategories.includes(key);
-        btn.classList.toggle("active", isSelected);
-
-        if (!canEdit) {
-            btn.classList.add("disabled");
-            btn.disabled = true;
-            return;
-        }
-
-        if (!isSelected && selectedDrawCategories.length >= MAX_DRAW_CATEGORIES) {
-            btn.classList.add("disabled");
-            btn.disabled = true;
-        } else {
-            btn.classList.remove("disabled");
-            btn.disabled = false;
-        }
-    });
-}
-
-function renderDrawPregameCategories(data) {
-    const container = document.getElementById("drawCategoryGrid");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    allDrawCategories.forEach((key) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "category-btn";
-        button.dataset.categoryKey = key;
-        button.textContent = drawCategoryLabels[key] || key;
-        button.onclick = () => toggleDrawCategory(key);
-        container.appendChild(button);
-    });
-
-    const info = document.getElementById("drawCategorySelectionInfo");
-    if (info && !drawIsHost) {
-        info.textContent = data.categories?.length
-            ? `\u0627\u0644\u0645\u0646\u0638\u0645 \u064A\u062E\u062A\u0627\u0631 \u0627\u0644\u062A\u0635\u0646\u064A\u0641\u0627\u062A \u0627\u0644\u0622\u0646: ${data.categories.length} / ${MAX_DRAW_CATEGORIES}`
-            : `\u0627\u0644\u0645\u0646\u0638\u0645 \u0644\u0645 \u064A\u062E\u062A\u0631 \u0623\u064A \u062A\u0635\u0646\u064A\u0641 \u0628\u0639\u062F`;
-    }
-
-    updateDrawCategoryButtonsState();
-}
-
-async function createDrawRoom() {
-    const hostName = document.getElementById("drawName").value.trim();
-
-    if (!hostName) {
-        showDrawError("الرجاء إدخال الاسم أولاً!");
-        return;
-    }
-    if (!selectedDrawPlayerCount) {
-        showDrawError("اختر عدد اللاعبين أولاً!");
-        return;
-    }
-    if (!selectedDrawRounds) {
-        showDrawError("اختر عدد الجولات أولاً!");
-        return;
-    }
-    if (selectedDrawRounds < selectedDrawPlayerCount) {
-        showDrawError("عدد الجولات يجب أن يكون على الأقل بعدد اللاعبين.");
-        return;
-    }
-
-    const response = await fetch("/api/draw-guess/rooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            host_name: hostName,
-            character_id: selectedDrawCharacter,
-            max_player_count: selectedDrawPlayerCount,
-            total_rounds: selectedDrawRounds,
-            categories: [],
-            language: selectedDrawLanguage,
-            round_timer_seconds: selectedDrawTimer
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        showDrawError(data.detail || "حدث خطأ أثناء إنشاء الغرفة.");
-        return;
-    }
-
-    currentDrawRoomCode = data.room_code;
-    currentDrawPlayerId = data.host_id;
-    currentDrawPlayerName = hostName;
-    currentDrawRoomData = data;
-    drawIsHost = true;
-    selectedDrawCategories = [...(data.categories || [])];
-    lastRenderedDrawSignature = null;
-
-    localStorage.setItem("draw_room_code", currentDrawRoomCode);
-    localStorage.setItem("draw_player_id", currentDrawPlayerId);
-    localStorage.setItem("draw_player_name", currentDrawPlayerName);
-
-    connectDrawWS(currentDrawRoomCode);
-    renderDrawWaitingRoom(data);
-}
-
-async function startDrawGame() {
-    if (!currentDrawRoomData?.categories?.length) {
-        showDrawError("اختر تصنيفًا واحدًا على الأقل قبل بدء اللعبة.");
-        return;
-    }
-
-    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/start`, {
-        method: "POST"
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        showDrawError(data.detail || "تعذر بدء اللعبة.");
-        return;
-    }
-
-    currentDrawRoomData = data;
-    lastRenderedDrawSignature = null;
-    renderDrawState(data);
-}
-
-async function restartDrawGame() {
-    const categories = selectedDrawCategories.length > 0
-        ? selectedDrawCategories
-        : currentDrawRoomData?.categories || [];
-
-    const totalRounds = selectedDrawRounds || currentDrawRoomData?.total_rounds;
-    const language = selectedDrawLanguage || currentDrawRoomData?.language || "en";
-    const timer = selectedDrawTimer || currentDrawRoomData?.round_timer_seconds || 60;
-
-    const response = await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/restart`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            categories,
-            total_rounds: totalRounds,
-            language,
-            round_timer_seconds: timer
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        showDrawError(data.detail || "تعذر إعادة اللعبة.");
-        return;
-    }
-
-    currentDrawRoomData = data;
-    selectedDrawCategories = [...(data.categories || [])];
-    lastRenderedDrawSignature = null;
-    renderDrawWaitingRoom(data);
-}
-
-function buildDrawStateSignature(data) {
-    const playersSignature = data.players
-        .map((p) => `${p.id}:${p.score}`)
-        .join("|");
-
-    return JSON.stringify({
-        started: data.started,
-        ended: data.ended,
-        phase: data.phase,
-        current_round: data.current_round,
-        current_drawer_id: data.current_drawer_id,
-        phase_deadline_at: data.phase_deadline_at,
-        guessed_correctly_player_ids: data.guessed_correctly_player_ids,
-        last_round_word_en: data.last_round_word_en,
-        last_round_word_ar: data.last_round_word_ar,
-        last_round_score_changes: data.last_round_score_changes,
-        categories: (data.categories || []).join(","),
-        players: playersSignature
-    });
-}
-
-function renderDrawWaitingRoom(data) {
-    hideAllDrawScreens();
-    document.getElementById("screen-draw-wait").classList.remove("hidden");
-    currentDrawRoomData = data;
-    selectedDrawCategories = [...(data.categories || [])];
-    document.getElementById("drawDisplayCode").textContent = data.room_code;
-
-    const tbody = document.getElementById("drawPlayerList");
-    tbody.innerHTML = "";
-
-    [...data.players]
-        .sort((a, b) => b.score - a.score)
-        .forEach((player) => {
-            const row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${buildDrawPlayerIdentity(player)}</td>
-                <td>${player.score}</td>
-                ${buildDrawRemoveActionCell(player.id)}
-            `;
-            tbody.appendChild(row);
-        });
-
-    renderDrawPregameCategories(data);
-
-    if (drawIsHost) {
-        document.getElementById("drawHostArea").classList.remove("hidden");
-        document.getElementById("drawMemberArea").classList.add("hidden");
-        document.getElementById("drawWaitMsg").classList.add("hidden");
-    } else {
-        document.getElementById("drawHostArea").classList.add("hidden");
-        document.getElementById("drawMemberArea").classList.remove("hidden");
-        document.getElementById("drawWaitMsg").classList.remove("hidden");
-    }
 }
 
 function clearDrawLocalState() {
@@ -1795,6 +1521,7 @@ function clearDrawLocalState() {
     selectedDrawLanguage = "en";
     selectedDrawTimer = 60;
     selectedDrawCharacter = "char1";
+    drawStrokeHistory = [];
 
     if (drawWS) {
         drawWS.close();
@@ -1817,9 +1544,9 @@ setInterval(async () => {
     if (currentDrawRoomCode && currentDrawPlayerId) {
         try {
             await fetch(`/api/draw-guess/rooms/${currentDrawRoomCode}/heartbeat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ player_id: currentDrawPlayerId })
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ player_id: currentDrawPlayerId }),
             });
         } catch (e) {
             // Ignore errors
