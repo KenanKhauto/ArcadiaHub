@@ -1,5 +1,8 @@
 """API routes for the drawing guess game."""
 
+import json
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.games.draw_guess.constants import DRAW_CATEGORIES
@@ -27,6 +30,7 @@ from app.games.draw_guess.domain import DrawGuessStroke
 
 router = APIRouter()
 service = DrawGuessGameService()
+logger = logging.getLogger(__name__)
 
 
 def build_room_response(room) -> DrawGuessRoomStateResponse:
@@ -223,17 +227,37 @@ def heartbeat(room_code: str, payload: DrawGuessLeaveRoomRequest):
     
 @router.websocket("/ws/{room_code}")
 async def websocket_endpoint(websocket: WebSocket, room_code: str):
-    await manager.connect(room_code, websocket)
+    player_id = websocket.query_params.get("player_id")
+    await manager.connect(room_code, websocket, player_id=player_id)
 
     try:
         while True:
-            data = await websocket.receive_json()
+            try:
+                raw_message = await websocket.receive_text()
+            except WebSocketDisconnect:
+                logger.info("Draw WS receive disconnect room=%s player=%s", room_code, player_id or "unknown")
+                raise
+
+            try:
+                data = json.loads(raw_message)
+            except json.JSONDecodeError:
+                logger.warning("Draw WS invalid JSON room=%s player=%s payload=%r", room_code, player_id or "unknown", raw_message)
+                continue
+
+            if not isinstance(data, dict):
+                logger.warning("Draw WS invalid payload type room=%s player=%s payload_type=%s", room_code, player_id or "unknown", type(data).__name__)
+                continue
 
             event_type = data.get("type")
+            message_player_id = data.get("player_id")
 
-            # Store player_id association
-            if "player_id" in data:
-                manager.player_websockets[data["player_id"]] = websocket
+            if message_player_id:
+                player_id = str(message_player_id)
+                await manager.register_player(room_code, player_id, websocket)
+
+            if not isinstance(event_type, str):
+                logger.warning("Draw WS missing event type room=%s player=%s payload=%s", room_code, player_id or "unknown", data)
+                continue
 
             # DRAW EVENT
             if event_type == "draw":
@@ -267,27 +291,28 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
                         }
                     })
                 except (ValueError, KeyError, TypeError) as e:
-                    # Skip invalid stroke data
-                    print(f"Invalid draw data received: {e}")
-                    pass
+                    logger.warning("Draw WS invalid draw payload room=%s player=%s error=%s payload=%s", room_code, player_id or "unknown", e, data)
 
             # GUESS EVENT
             elif event_type == "guess":
-                room = service.submit_guess(
-                    room_code=room_code,
-                    player_id=data["player_id"],
-                    guess_text=data["text"]
-                )
+                try:
+                    room = service.submit_guess(
+                        room_code=room_code,
+                        player_id=data["player_id"],
+                        guess_text=data["text"]
+                    )
 
-                last_guess = room.guesses[-1]
+                    last_guess = room.guesses[-1]
 
-                await manager.broadcast(room_code, {
-                    "type": "guess",
-                    "player_name": last_guess.player_name,
-                    "text": last_guess.text,
-                    "is_correct": last_guess.is_correct,
-                    "player_id": last_guess.player_id
-                })
+                    await manager.broadcast(room_code, {
+                        "type": "guess",
+                        "player_name": last_guess.player_name,
+                        "text": last_guess.text,
+                        "is_correct": last_guess.is_correct,
+                        "player_id": last_guess.player_id
+                    })
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.warning("Draw WS invalid guess payload room=%s player=%s error=%s payload=%s", room_code, player_id or "unknown", e, data)
 
             # CLEAR CANVAS
             elif event_type == "clear":
@@ -297,12 +322,25 @@ async def websocket_endpoint(websocket: WebSocket, room_code: str):
 
             # LEAVE EVENT
             elif event_type == "leave":
-                room = service.leave_room(room_code, data["player_id"])
-                # Optionally broadcast that player left
-                await manager.broadcast(room_code, {
-                    "type": "player_left",
-                    "player_id": data["player_id"]
-                })
+                try:
+                    service.leave_room(room_code, data["player_id"])
+                    await manager.broadcast(room_code, {
+                        "type": "player_left",
+                        "player_id": data["player_id"]
+                    })
+                    logger.info("Draw WS leave event room=%s player=%s", room_code, data["player_id"])
+                except Exception as exc:
+                    logger.warning("Draw WS leave event failed room=%s player=%s error=%s", room_code, player_id or "unknown", exc)
+                finally:
+                    manager.disconnect(room_code, websocket)
+                    break
+
+            else:
+                logger.warning("Draw WS unknown event type room=%s player=%s event=%s", room_code, player_id or "unknown", event_type)
 
     except WebSocketDisconnect:
-        manager.disconnect(room_code, websocket, service)
+        logger.info("Draw WS disconnected room=%s player=%s", room_code, player_id or "unknown")
+    except Exception as exc:
+        logger.exception("Draw WS endpoint error room=%s player=%s error=%s", room_code, player_id or "unknown", exc)
+    finally:
+        manager.disconnect(room_code, websocket)

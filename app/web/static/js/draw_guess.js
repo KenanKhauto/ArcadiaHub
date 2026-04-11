@@ -15,6 +15,10 @@ let selectedDrawTimer = 60;
 let selectedDrawCharacter = localStorage.getItem("draw_character_id") || "char1";
 
 let drawWS = null;
+let drawWSRoomCode = null;
+let drawWSReconnectTimer = null;
+let drawWSShouldReconnect = false;
+let drawWSBeforeUnloadBound = false;
 let drawCanvas = null;
 let drawCtx = null;
 let drawIsDrawing = false;
@@ -346,7 +350,7 @@ function canCurrentPlayerDraw() {
     );
 }
 
-function connectDrawWS(roomCode) {
+function legacyConnectDrawWS(roomCode) {
     if (drawWS) {
         drawWS.close();
         drawWS = null;
@@ -421,6 +425,175 @@ function connectDrawWS(roomCode) {
             }
         }
     });
+}
+
+function clearDrawWSReconnectTimer() {
+    if (drawWSReconnectTimer) {
+        clearTimeout(drawWSReconnectTimer);
+        drawWSReconnectTimer = null;
+    }
+}
+
+function scheduleDrawWSReconnect(roomCode) {
+    if (!drawWSShouldReconnect || !roomCode || !currentDrawPlayerId || drawWSReconnectTimer) {
+        return;
+    }
+
+    drawWSReconnectTimer = setTimeout(() => {
+        drawWSReconnectTimer = null;
+
+        if (!drawWSShouldReconnect || currentDrawRoomCode !== roomCode || !currentDrawPlayerId) {
+            return;
+        }
+
+        console.log("Reconnecting draw WebSocket", { roomCode, playerId: currentDrawPlayerId });
+        connectDrawWS(roomCode);
+    }, 1500);
+}
+
+function closeDrawWS({ shouldReconnect = false } = {}) {
+    drawWSShouldReconnect = shouldReconnect;
+    clearDrawWSReconnectTimer();
+
+    if (!drawWS) {
+        drawWSRoomCode = null;
+        return;
+    }
+
+    const socket = drawWS;
+    drawWS = null;
+    drawWSRoomCode = null;
+
+    socket.onopen = null;
+    socket.onerror = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+
+    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        try {
+            socket.close();
+        } catch (error) {
+            console.error("Error closing draw WebSocket:", error);
+        }
+    }
+}
+
+function handleDrawWindowUnload() {
+    closeDrawWS({ shouldReconnect: false });
+}
+
+function connectDrawWS(roomCode) {
+    if (!roomCode || !currentDrawPlayerId) {
+        return;
+    }
+
+    if (
+        drawWS &&
+        drawWSRoomCode === roomCode &&
+        (drawWS.readyState === WebSocket.OPEN || drawWS.readyState === WebSocket.CONNECTING)
+    ) {
+        return;
+    }
+
+    closeDrawWS({ shouldReconnect: false });
+    drawWSShouldReconnect = true;
+    clearDrawWSReconnectTimer();
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsUrl = `${protocol}://${window.location.host}/api/draw-guess/ws/${roomCode}?player_id=${encodeURIComponent(currentDrawPlayerId)}`;
+
+    let socket;
+
+    try {
+        socket = new WebSocket(wsUrl);
+    } catch (error) {
+        console.error("Failed to create WebSocket:", error);
+        showDrawError("حدث خطأ في الاتصال. حاول مرة أخرى.");
+        scheduleDrawWSReconnect(roomCode);
+        return;
+    }
+
+    drawWS = socket;
+    drawWSRoomCode = roomCode;
+
+    socket.onopen = () => {
+        if (drawWS !== socket) {
+            return;
+        }
+
+        clearDrawWSReconnectTimer();
+        console.log("Draw WebSocket connected", { roomCode, playerId: currentDrawPlayerId });
+    };
+
+    socket.onerror = (error) => {
+        if (drawWS !== socket) {
+            return;
+        }
+
+        console.error("Draw WebSocket error:", { roomCode, playerId: currentDrawPlayerId, error });
+    };
+
+    socket.onmessage = (event) => {
+        if (drawWS !== socket) {
+            return;
+        }
+
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.type === "draw" && data.stroke) {
+                if (data.stroke.player_id !== currentDrawPlayerId) {
+                    const stroke = {
+                        x0: parseFloat(data.stroke.x0) || 0,
+                        y0: parseFloat(data.stroke.y0) || 0,
+                        x1: parseFloat(data.stroke.x1) || 0,
+                        y1: parseFloat(data.stroke.y1) || 0,
+                        color: data.stroke.color || "#000000",
+                        width: parseFloat(data.stroke.width) || 2,
+                    };
+                    drawStroke(stroke, true);
+                }
+            }
+
+            if (data.type === "guess") {
+                renderDrawGuessMessage(data);
+            }
+
+            if (data.type === "clear") {
+                clearCanvasLocally();
+            }
+
+            if (data.type === "player_left") {
+                refreshDrawRoomState();
+            }
+        } catch (error) {
+            console.error("Error processing WebSocket message:", error);
+        }
+    };
+
+    socket.onclose = (event) => {
+        if (drawWS === socket) {
+            drawWS = null;
+            drawWSRoomCode = null;
+        }
+
+        console.log("Draw WebSocket closed", {
+            roomCode,
+            playerId: currentDrawPlayerId,
+            code: event.code,
+            wasClean: event.wasClean,
+        });
+
+        if (drawWSShouldReconnect && currentDrawRoomCode === roomCode && currentDrawPlayerId) {
+            scheduleDrawWSReconnect(roomCode);
+        }
+    };
+
+    if (!drawWSBeforeUnloadBound) {
+        window.addEventListener("beforeunload", handleDrawWindowUnload);
+        window.addEventListener("pagehide", handleDrawWindowUnload);
+        drawWSBeforeUnloadBound = true;
+    }
 }
 
 function sendDrawWSMessage(payload) {
@@ -1050,7 +1223,7 @@ async function refreshDrawRoomState() {
     currentDrawRoomData = data;
     drawIsHost = currentDrawPlayerId === data.host_id;
 
-    if (!drawWS || drawWS.readyState !== WebSocket.OPEN) {
+    if (!drawWS || (drawWS.readyState !== WebSocket.OPEN && drawWS.readyState !== WebSocket.CONNECTING)) {
         connectDrawWS(currentDrawRoomCode);
     }
 
@@ -1523,10 +1696,7 @@ function clearDrawLocalState() {
     selectedDrawCharacter = "char1";
     drawStrokeHistory = [];
 
-    if (drawWS) {
-        drawWS.close();
-        drawWS = null;
-    }
+    closeDrawWS({ shouldReconnect: false });
 }
 
 function resetDrawAndExit() {
