@@ -25,6 +25,7 @@ class Settings(BaseModel):
     profile_image_s3_region: str = os.getenv("PROFILE_IMAGE_S3_REGION", "us-east-1")
     profile_image_s3_prefix: str = os.getenv("PROFILE_IMAGE_S3_PREFIX", "profile_uploads")
     profile_image_s3_public_base_url: str = os.getenv("PROFILE_IMAGE_S3_PUBLIC_BASE_URL", "")
+    profile_image_s3_endpoint_url: str = os.getenv("PROFILE_IMAGE_S3_ENDPOINT_URL", "")
 
 
 settings = Settings()

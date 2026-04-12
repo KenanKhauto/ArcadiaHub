@@ -79,11 +79,13 @@ class S3ProfileImageStorage:
         region: str,
         prefix: str = "profile_uploads",
         public_base_url: str | None = None,
+        endpoint_url: str | None = None,
     ):
         self.bucket = bucket
         self.region = region
         self.prefix = (prefix or "").strip("/")
         self.public_base_url = (public_base_url or "").rstrip("/")
+        self.endpoint_url = (endpoint_url or "").rstrip("/")
         self._client = None
 
     @property
@@ -93,7 +95,11 @@ class S3ProfileImageStorage:
                 import boto3  # type: ignore
             except ImportError as exc:
                 raise ValueError("S3 profile storage requires boto3 to be installed.") from exc
-            self._client = boto3.client("s3", region_name=self.region)
+            self._client = boto3.client(
+                "s3",
+                region_name=self.region,
+                endpoint_url=self.endpoint_url or None,
+            )
         return self._client
 
     def store(self, user_id: int, image_bytes: bytes, extension: str, old_image: str | None = None) -> str:
@@ -120,6 +126,8 @@ class S3ProfileImageStorage:
     def _to_public_url(self, key: str) -> str:
         if self.public_base_url:
             return f"{self.public_base_url}/{key}"
+        if self.endpoint_url:
+            return f"{self.endpoint_url}/{self.bucket}/{key}"
         return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
 
     def _extract_managed_key(self, image_value: str | None) -> str | None:
@@ -136,6 +144,11 @@ class S3ProfileImageStorage:
         canonical_base = f"https://{self.bucket}.s3.{self.region}.amazonaws.com/"
         if value.startswith(canonical_base):
             return value[len(canonical_base):]
+
+        if self.endpoint_url:
+            endpoint_bucket_base = f"{self.endpoint_url}/{self.bucket}/"
+            if value.startswith(endpoint_bucket_base):
+                return value[len(endpoint_bucket_base):]
 
         if self.prefix and value.startswith(f"{self.prefix}/"):
             return value

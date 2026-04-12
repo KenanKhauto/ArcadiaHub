@@ -46,6 +46,7 @@ class AuthService:
                 region=settings.profile_image_s3_region,
                 prefix=settings.profile_image_s3_prefix,
                 public_base_url=settings.profile_image_s3_public_base_url or None,
+                endpoint_url=settings.profile_image_s3_endpoint_url or None,
             )
         raise ValueError(f"Unsupported PROFILE_IMAGE_STORAGE_BACKEND: {backend}")
 
