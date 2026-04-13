@@ -1024,6 +1024,7 @@ function renderPlayersState(data) {
         const identityText = player.visible_identity
             ? player.visible_identity
             : "مخفية";
+        const latestGuessText = (player.latest_guess_text || "").trim() || "-";
 
         const rowClass = player.has_guessed_correctly ? "whoami-player-done-row" : "";
 
@@ -1033,6 +1034,7 @@ function renderPlayersState(data) {
                 <td>${statusText}</td>
                 <td>${player.guess_count}</td>
                 <td>${identityText}</td>
+                <td>${escapeHtml(latestGuessText)}</td>
                 ${buildWhoAmIRemoveActionCell(player.id)}
             </tr>
         `;
@@ -1048,6 +1050,7 @@ function renderPlayersState(data) {
                         <th>الحالة</th>
                         <th>عدد المحاولات</th>
                         <th>الهوية</th>
+                        <th>آخر تخمين</th>
                         <th>${isHost ? "\u0627\u0644\u0625\u062C\u0631\u0627\u0621" : ""}</th>
                     </tr>
                 </thead>
