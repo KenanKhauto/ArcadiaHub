@@ -195,6 +195,8 @@ function handleProfileImageError(imgEl) {
 
 let appFriendUsernames = new Set();
 let appFriendCachePromise = null;
+const inviteCooldownUntilByFriendId = new Map();
+const INVITE_BUTTON_COOLDOWN_SECONDS = 30;
 
 async function ensureAppFriendCache() {
     if (!window.appCurrentUser) return appFriendUsernames;
@@ -511,6 +513,38 @@ function buildInviteNotificationCard(invite) {
     return wrapper;
 }
 
+function applyInviteButtonCooldown(buttonEl, friendId) {
+    if (!buttonEl) return;
+
+    const tick = () => {
+        const cooldownUntil = inviteCooldownUntilByFriendId.get(friendId) || 0;
+        const remainingSeconds = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+
+        if (remainingSeconds <= 0) {
+            inviteCooldownUntilByFriendId.delete(friendId);
+            buttonEl.disabled = false;
+            buttonEl.textContent = "دعوة";
+            return false;
+        }
+
+        buttonEl.disabled = true;
+        buttonEl.textContent = `Invited (${remainingSeconds}s)`;
+        return true;
+    };
+
+    if (!tick()) return;
+
+    const intervalId = setInterval(() => {
+        if (!document.body.contains(buttonEl)) {
+            clearInterval(intervalId);
+            return;
+        }
+        if (!tick()) {
+            clearInterval(intervalId);
+        }
+    }, 1000);
+}
+
 function buildFriendRequestNotificationCard(user) {
     const wrapper = document.createElement("div");
     wrapper.className = "app-list-card";
@@ -634,7 +668,9 @@ async function openInviteFriendsModal(gameKey, roomCode) {
             inviteBtn.type = "button";
             inviteBtn.className = "btn btn-primary app-list-action-btn";
             inviteBtn.textContent = "دعوة";
+            applyInviteButtonCooldown(inviteBtn, friend.id);
             inviteBtn.onclick = async () => {
+                if (inviteBtn.disabled) return;
                 const sendResponse = await fetch("/invites", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -654,11 +690,11 @@ async function openInviteFriendsModal(gameKey, roomCode) {
                     });
                     return;
                 }
-
-                await openAppAlert(`تم إرسال دعوة اللعب إلى ${friendName}.`, {
-                    title: "تم الإرسال",
-                    confirmLabel: "حسناً",
-                });
+                inviteCooldownUntilByFriendId.set(
+                    friend.id,
+                    Date.now() + INVITE_BUTTON_COOLDOWN_SECONDS * 1000
+                );
+                applyInviteButtonCooldown(inviteBtn, friend.id);
             };
 
             actions.appendChild(inviteBtn);
