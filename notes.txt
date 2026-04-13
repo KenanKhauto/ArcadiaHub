@@ -3,4 +3,8 @@
 
 --- bluff, we want to see who submitted which answer it should be shown on the table..
 
---- in bluff, the correct answer should show as green.
+d freind requests to notifications
+--- make notifications pop when you have new notifications
+--- fix draw guess new round, erase the white board.
+--- work on a recommender system for letters with time.
+--- add new categories, what is the country. with the images.
