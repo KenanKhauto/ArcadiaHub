@@ -129,7 +129,7 @@ def create_room(
 
 
 @router.post("/rooms/{room_code}/join", response_model=DrawGuessRoomStateResponse)
-def join_room(
+async def join_room(
     room_code: str,
     payload: DrawGuessJoinRoomRequest,
     current_user: User | None = Depends(get_current_user_optional),
@@ -141,7 +141,12 @@ def join_room(
             payload.character_id,
             current_user.username if current_user else None,
         )
-        return build_room_response(room)
+        response = build_room_response(room)
+        await manager.broadcast(
+            room_code,
+            {"type": "state_sync", "state": response.model_dump()},
+        )
+        return response
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
