@@ -1,91 +1,91 @@
 {% extends "base.html" %}
 
-{% block title %}Ù„ÙˆØ­Ø© ØªØ­ÙƒÙ… Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©{% endblock %}
+{% block title %}لوحة تحكم الإدارة{% endblock %}
 
 {% block content %}
-<div class="card glow-border" style="max-width: 1300px; margin: 20px auto;">
-    <h2 style="color:var(--primary); margin-bottom:8px;">Ù„ÙˆØ­Ø© ØªØ­ÙƒÙ… Ø§Ù„Ø¥Ø¯Ø§Ø±Ø©</h2>
+<div class="card glow-border" style="max-width: 1300px; margin: 20px auto; font-family: 'Tajawal', sans-serif;">
+    <h2 style="color:var(--primary); margin-bottom:8px;">لوحة تحكم الإدارة</h2>
     <p style="color:#aaa; margin-bottom:16px;">
-        Ù…ØªØ§Ø¨Ø¹Ø© Ø§Ù„ØºØ±Ù Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©ØŒ Ø§Ø³ØªØ¹Ø±Ø§Ø¶ ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¬Ù„Ø³Ø§ØªØŒ ÙˆØ¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.
+        متابعة الغرف المباشرة، استعراض تاريخ الجلسات، وإدارة المستخدمين.
     </p>
 
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
         <div class="card" style="min-width:220px; padding:12px;">
-            <div style="color:#888;">Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„ØºØ±Ù Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø©</div>
+            <div style="color:#888;">إجمالي الغرف المعروضة</div>
             <div id="adminTotalRooms" style="font-size:24px; font-weight:700;">0</div>
         </div>
         <div class="card" style="min-width:220px; padding:12px;">
-            <div style="color:#888;">Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ† Ø§Ù„Ù…ØªØµÙ„ÙˆÙ† (WS)</div>
+            <div style="color:#888;">المستخدمون المتصلون (WS)</div>
             <div id="adminConnectedUsers" style="font-size:24px; font-weight:700;">0</div>
         </div>
         <div class="card" style="min-width:220px; padding:12px;">
-            <div style="color:#888;">Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ† (Ù†ØªØ§Ø¦Ø¬ Ø§Ù„ÙÙ„ØªØ±)</div>
+            <div style="color:#888;">إجمالي المستخدمين (نتائج الفلتر)</div>
             <div id="adminUsersTotal" style="font-size:24px; font-weight:700;">0</div>
         </div>
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-        <button class="btn btn-primary admin-tab-btn" data-tab="live" onclick="switchAdminTab('live')">Ø§Ù„ØºØ±Ù Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©</button>
-        <button class="btn admin-tab-btn" data-tab="history" onclick="switchAdminTab('history')">ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¬Ù„Ø³Ø§Øª</button>
-        <button class="btn admin-tab-btn" data-tab="users" onclick="switchAdminTab('users')">Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙˆÙ†</button>
+        <button class="btn btn-primary admin-tab-btn" data-tab="live" onclick="switchAdminTab('live')">الغرف المباشرة</button>
+        <button class="btn admin-tab-btn" data-tab="history" onclick="switchAdminTab('history')">تاريخ الجلسات</button>
+        <button class="btn admin-tab-btn" data-tab="users" onclick="switchAdminTab('users')">المستخدمون</button>
     </div>
 
     <section id="adminTabLive">
         <div class="card" style="padding:12px; margin-bottom:10px;">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
                 <div>
-                    <label>Ù†ÙˆØ¹ Ø§Ù„Ù„Ø¹Ø¨Ø©</label>
+                    <label>نوع اللعبة</label>
                     <select id="liveGameType">
-                        <option value="">Ø§Ù„ÙƒÙ„</option>
-                        <option value="bluff">Ø§Ù„Ø®Ø¯Ø§Ø¹</option>
-                        <option value="who_am_i">Ù…Ù† Ø£Ù†Ø§</option>
-                        <option value="draw_guess">Ø§Ø±Ø³Ù… ÙˆØ®Ù…Ù‘Ù†</option>
-                        <option value="undercover">Ø£Ù†Ø¯Ø± ÙƒÙˆÙØ±</option>
+                        <option value="">الكل</option>
+                        <option value="bluff">لعبة الخداع</option>
+                        <option value="who_am_i">من أنا</option>
+                        <option value="draw_guess">ارسم وخمّن</option>
+                        <option value="undercover">أندر كوفر</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø­Ø§Ù„Ø© Ø§Ù„Ù„Ø¹Ø¨Ø©</label>
+                    <label>حالة اللعبة</label>
                     <select id="liveStatus">
-                        <option value="">Ø§Ù„ÙƒÙ„</option>
-                        <option value="waiting">Ø§Ù†ØªØ¸Ø§Ø±</option>
-                        <option value="category_pick">Ø§Ø®ØªÙŠØ§Ø± ØªØµÙ†ÙŠÙ</option>
-                        <option value="submission">Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø¥Ø¬Ø§Ø¨Ø§Øª</option>
-                        <option value="answer_pick">Ø§Ø®ØªÙŠØ§Ø± Ø§Ù„Ø¥Ø¬Ø§Ø¨Ø©</option>
-                        <option value="round_result">Ù†ØªÙŠØ¬Ø© Ø§Ù„Ø¬ÙˆÙ„Ø©</option>
-                        <option value="game_over">Ù…Ù†ØªÙ‡ÙŠØ©</option>
+                        <option value="">الكل</option>
+                        <option value="waiting">انتظار</option>
+                        <option value="category_pick">اختيار التصنيف</option>
+                        <option value="submission">إرسال الإجابات</option>
+                        <option value="answer_pick">اختيار الإجابة</option>
+                        <option value="round_result">نتيجة الجولة</option>
+                        <option value="game_over">منتهية</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø£Ù‚Ù„ Ø¹Ø¯Ø¯ Ù„Ø§Ø¹Ø¨ÙŠÙ†</label>
+                    <label>أقل عدد لاعبين</label>
                     <input id="liveMinPlayers" type="number" min="0" placeholder="0">
                 </div>
                 <div>
-                    <label>Ø£Ø¹Ù„Ù‰ Ø¹Ø¯Ø¯ Ù„Ø§Ø¹Ø¨ÙŠÙ†</label>
+                    <label>أعلى عدد لاعبين</label>
                     <input id="liveMaxPlayers" type="number" min="0" placeholder="10">
                 </div>
                 <div>
-                    <label>Ø¨Ø­Ø«</label>
-                    <input id="liveSearch" type="text" placeholder="Ø±Ù…Ø² ØºØ±ÙØ© Ø£Ùˆ Ø§Ø³Ù… Ù„Ø§Ø¹Ø¨">
+                    <label>بحث</label>
+                    <input id="liveSearch" type="text" placeholder="رمز غرفة أو اسم لاعب">
                 </div>
                 <div>
-                    <label>ØªØ±ØªÙŠØ¨ Ø­Ø³Ø¨</label>
+                    <label>ترتيب حسب</label>
                     <select id="liveSortBy">
-                        <option value="last_activity_at">Ø¢Ø®Ø± Ù†Ø´Ø§Ø·</option>
-                        <option value="created_at">ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡</option>
-                        <option value="user_count">Ø¹Ø¯Ø¯ Ø§Ù„Ù„Ø§Ø¹Ø¨ÙŠÙ†</option>
-                        <option value="game_type">Ù†ÙˆØ¹ Ø§Ù„Ù„Ø¹Ø¨Ø©</option>
-                        <option value="status">Ø§Ù„Ù…Ø±Ø­Ù„Ø©</option>
+                        <option value="last_activity_at">آخر نشاط</option>
+                        <option value="created_at">تاريخ الإنشاء</option>
+                        <option value="user_count">عدد اللاعبين</option>
+                        <option value="game_type">نوع اللعبة</option>
+                        <option value="status">المرحلة</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø§ØªØ¬Ø§Ù‡ Ø§Ù„ØªØ±ØªÙŠØ¨</label>
+                    <label>اتجاه الترتيب</label>
                     <select id="liveSortOrder">
-                        <option value="desc">ØªÙ†Ø§Ø²Ù„ÙŠ</option>
-                        <option value="asc">ØªØµØ§Ø¹Ø¯ÙŠ</option>
+                        <option value="desc">تنازلي</option>
+                        <option value="asc">تصاعدي</option>
                     </select>
                 </div>
                 <div style="display:flex; align-items:flex-end;">
-                    <button class="btn btn-primary" onclick="refreshLiveRooms()">ØªØ­Ø¯ÙŠØ«</button>
+                    <button class="btn btn-primary" onclick="refreshLiveRooms()">تحديث</button>
                 </div>
             </div>
         </div>
@@ -94,14 +94,14 @@
             <table class="bluff-table">
                 <thead>
                     <tr>
-                        <th>Ø±Ù…Ø² Ø§Ù„ØºØ±ÙØ©</th>
-                        <th>Ø§Ù„Ù„Ø¹Ø¨Ø©</th>
-                        <th>Ø§Ù„Ù…Ø±Ø­Ù„Ø©</th>
-                        <th>Ø§Ù„Ù„Ø§Ø¹Ø¨ÙˆÙ†</th>
-                        <th>Ø£Ø³Ù…Ø§Ø¡ Ø§Ù„Ù„Ø§Ø¹Ø¨ÙŠÙ†</th>
-                        <th>Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡</th>
-                        <th>Ø¢Ø®Ø± Ù†Ø´Ø§Ø·</th>
-                        <th>Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª</th>
+                        <th>رمز الغرفة</th>
+                        <th>اللعبة</th>
+                        <th>المرحلة</th>
+                        <th>اللاعبون</th>
+                        <th>أسماء اللاعبين</th>
+                        <th>الإنشاء</th>
+                        <th>آخر نشاط</th>
+                        <th>إجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="adminLiveRoomsBody"></tbody>
@@ -113,57 +113,57 @@
         <div class="card" style="padding:12px; margin-bottom:10px;">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
                 <div>
-                    <label>Ù†ÙˆØ¹ Ø§Ù„Ù„Ø¹Ø¨Ø©</label>
+                    <label>نوع اللعبة</label>
                     <select id="historyGameType">
-                        <option value="">Ø§Ù„ÙƒÙ„</option>
-                        <option value="bluff">Ø§Ù„Ø®Ø¯Ø§Ø¹</option>
-                        <option value="who_am_i">Ù…Ù† Ø£Ù†Ø§</option>
-                        <option value="draw_guess">Ø§Ø±Ø³Ù… ÙˆØ®Ù…Ù‘Ù†</option>
-                        <option value="undercover">Ø£Ù†Ø¯Ø± ÙƒÙˆÙØ±</option>
+                        <option value="">الكل</option>
+                        <option value="bluff">لعبة الخداع</option>
+                        <option value="who_am_i">من أنا</option>
+                        <option value="draw_guess">ارسم وخمّن</option>
+                        <option value="undercover">أندر كوفر</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø³Ø¨Ø¨ Ø§Ù„Ù†Ù‡Ø§ÙŠØ©</label>
-                    <input id="historyEndReason" type="text" placeholder="Ù…Ø«Ø§Ù„: game_completed">
+                    <label>سبب النهاية</label>
+                    <input id="historyEndReason" type="text" placeholder="مثال: game_completed">
                 </div>
                 <div>
-                    <label>Ù…Ù† ÙˆÙ‚Øª</label>
+                    <label>من وقت</label>
                     <input id="historyStartAt" type="datetime-local">
                 </div>
                 <div>
-                    <label>Ø¥Ù„Ù‰ ÙˆÙ‚Øª</label>
+                    <label>إلى وقت</label>
                     <input id="historyEndAt" type="datetime-local">
                 </div>
                 <div>
-                    <label>Ø£Ù‚Ù„ Ù„Ø§Ø¹Ø¨ÙŠÙ†</label>
+                    <label>أقل لاعبين</label>
                     <input id="historyMinPlayers" type="number" min="0">
                 </div>
                 <div>
-                    <label>Ø£Ø¹Ù„Ù‰ Ù„Ø§Ø¹Ø¨ÙŠÙ†</label>
+                    <label>أعلى لاعبين</label>
                     <input id="historyMaxPlayers" type="number" min="0">
                 </div>
                 <div>
-                    <label>ØªØ±ØªÙŠØ¨ Ø­Ø³Ø¨</label>
+                    <label>ترتيب حسب</label>
                     <select id="historySortBy">
-                        <option value="ended_at">ÙˆÙ‚Øª Ø§Ù„Ù†Ù‡Ø§ÙŠØ©</option>
-                        <option value="player_count">Ø¹Ø¯Ø¯ Ø§Ù„Ù„Ø§Ø¹Ø¨ÙŠÙ†</option>
-                        <option value="game_type">Ù†ÙˆØ¹ Ø§Ù„Ù„Ø¹Ø¨Ø©</option>
-                        <option value="end_reason">Ø³Ø¨Ø¨ Ø§Ù„Ù†Ù‡Ø§ÙŠØ©</option>
+                        <option value="ended_at">وقت النهاية</option>
+                        <option value="player_count">عدد اللاعبين</option>
+                        <option value="game_type">نوع اللعبة</option>
+                        <option value="end_reason">سبب النهاية</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø§ØªØ¬Ø§Ù‡</label>
+                    <label>اتجاه</label>
                     <select id="historySortOrder">
-                        <option value="desc">ØªÙ†Ø§Ø²Ù„ÙŠ</option>
-                        <option value="asc">ØªØµØ§Ø¹Ø¯ÙŠ</option>
+                        <option value="desc">تنازلي</option>
+                        <option value="asc">تصاعدي</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø­Ø¯ Ø§Ù„Ù†ØªØ§Ø¦Ø¬</label>
+                    <label>حد النتائج</label>
                     <input id="historyLimit" type="number" min="1" max="500" value="100">
                 </div>
                 <div style="display:flex; align-items:flex-end;">
-                    <button class="btn btn-primary" onclick="refreshHistory()">ØªØ­Ø¯ÙŠØ«</button>
+                    <button class="btn btn-primary" onclick="refreshHistory()">تحديث</button>
                 </div>
             </div>
         </div>
@@ -173,12 +173,12 @@
                 <thead>
                     <tr>
                         <th>Session</th>
-                        <th>Ø§Ù„Ù„Ø¹Ø¨Ø©</th>
-                        <th>Ø±Ù…Ø² Ø§Ù„ØºØ±ÙØ©</th>
-                        <th>Ø§Ù„Ù…Ù†Ø¸Ù‘Ù…</th>
-                        <th>Ø§Ù„Ù„Ø§Ø¹Ø¨ÙˆÙ†</th>
-                        <th>Ø³Ø¨Ø¨ Ø§Ù„Ù†Ù‡Ø§ÙŠØ©</th>
-                        <th>ÙˆÙ‚Øª Ø§Ù„Ù†Ù‡Ø§ÙŠØ©</th>
+                        <th>اللعبة</th>
+                        <th>رمز الغرفة</th>
+                        <th>المنظّم</th>
+                        <th>اللاعبون</th>
+                        <th>سبب النهاية</th>
+                        <th>وقت النهاية</th>
                     </tr>
                 </thead>
                 <tbody id="adminHistoryBody"></tbody>
@@ -191,30 +191,30 @@
         <div class="card" style="padding:12px; margin-bottom:10px;">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
                 <div>
-                    <label>Ø¨Ø­Ø«</label>
+                    <label>بحث</label>
                     <input id="usersSearch" type="text" placeholder="username / display / email">
                 </div>
                 <div>
-                    <label>ØªØ±ØªÙŠØ¨ Ø­Ø³Ø¨</label>
+                    <label>ترتيب حسب</label>
                     <select id="usersSortBy">
-                        <option value="created_at">ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡</option>
-                        <option value="username">Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</option>
-                        <option value="email">Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ</option>
+                        <option value="created_at">تاريخ الإنشاء</option>
+                        <option value="username">اسم المستخدم</option>
+                        <option value="email">البريد الإلكتروني</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø§ØªØ¬Ø§Ù‡</label>
+                    <label>اتجاه</label>
                     <select id="usersSortOrder">
-                        <option value="desc">ØªÙ†Ø§Ø²Ù„ÙŠ</option>
-                        <option value="asc">ØªØµØ§Ø¹Ø¯ÙŠ</option>
+                        <option value="desc">تنازلي</option>
+                        <option value="asc">تصاعدي</option>
                     </select>
                 </div>
                 <div>
-                    <label>Ø­Ø¯ Ø§Ù„Ù†ØªØ§Ø¦Ø¬</label>
+                    <label>حد النتائج</label>
                     <input id="usersLimit" type="number" min="1" max="500" value="100">
                 </div>
                 <div style="display:flex; align-items:flex-end;">
-                    <button class="btn btn-primary" onclick="refreshUsers()">ØªØ­Ø¯ÙŠØ«</button>
+                    <button class="btn btn-primary" onclick="refreshUsers()">تحديث</button>
                 </div>
             </div>
         </div>
@@ -224,14 +224,14 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</th>
-                        <th>Ø§Ù„Ø§Ø³Ù… Ø§Ù„Ø¸Ø§Ù‡Ø±</th>
-                        <th>Ø§Ù„Ø¨Ø±ÙŠØ¯</th>
-                        <th>Ø§Ù„Ø¬Ù„Ø³Ø§Øª</th>
-                        <th>Ù…Ø±Ø§Øª Ø§Ù„ÙÙˆØ²</th>
-                        <th>Ø£Ø¯Ù…Ù†</th>
-                        <th>ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡</th>
-                        <th>Ø¥Ø¬Ø±Ø§Ø¡Ø§Øª</th>
+                        <th>اسم المستخدم</th>
+                        <th>الاسم الظاهر</th>
+                        <th>البريد</th>
+                        <th>الجلسات</th>
+                        <th>مرات الفوز</th>
+                        <th>أدمن</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>إجراءات</th>
                     </tr>
                 </thead>
                 <tbody id="adminUsersBody"></tbody>
@@ -242,29 +242,29 @@
 </div>
 
 <div id="adminUserEditModal" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1200; align-items:center; justify-content:center; padding:16px;">
-    <div class="card glow-border" style="max-width:560px; width:100%;">
-        <h3 style="margin:0 0 12px; color:var(--primary);">ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</h3>
+    <div class="card glow-border" style="max-width:560px; width:100%; font-family: 'Tajawal', sans-serif;">
+        <h3 style="margin:0 0 12px; color:var(--primary);">تعديل المستخدم</h3>
         <div style="display:grid; grid-template-columns:1fr; gap:10px;">
             <div>
-                <label for="adminEditUsername">Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…</label>
+                <label for="adminEditUsername">اسم المستخدم</label>
                 <input id="adminEditUsername" type="text" autocomplete="off">
             </div>
             <div>
-                <label for="adminEditDisplayName">Ø§Ù„Ø§Ø³Ù… Ø§Ù„Ø¸Ø§Ù‡Ø±</label>
+                <label for="adminEditDisplayName">الاسم الظاهر</label>
                 <input id="adminEditDisplayName" type="text" autocomplete="off">
             </div>
             <div>
-                <label for="adminEditEmail">Ø§Ù„Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¥Ù„ÙƒØªØ±ÙˆÙ†ÙŠ</label>
+                <label for="adminEditEmail">البريد الإلكتروني</label>
                 <input id="adminEditEmail" type="email" autocomplete="off">
             </div>
             <div>
-                <label for="adminEditPassword">ÙƒÙ„Ù…Ø© Ù…Ø±ÙˆØ± Ø¬Ø¯ÙŠØ¯Ø© (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)</label>
+                <label for="adminEditPassword">كلمة مرور جديدة (اختياري)</label>
                 <input id="adminEditPassword" type="password" autocomplete="new-password">
             </div>
         </div>
         <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
-            <button class="btn" type="button" onclick="closeUserEditModal()">Ø¥Ù„ØºØ§Ø¡</button>
-            <button class="btn btn-primary" type="button" onclick="submitUserEdit()">Ø­ÙØ¸</button>
+            <button class="btn" type="button" onclick="closeUserEditModal()">إلغاء</button>
+            <button class="btn btn-primary" type="button" onclick="submitUserEdit()">حفظ</button>
         </div>
     </div>
 </div>
